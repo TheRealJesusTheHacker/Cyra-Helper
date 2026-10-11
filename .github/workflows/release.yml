@@ -1,0 +1,63 @@
+# =====================================================================
+# QUOTA DESIGN — read this before touching the upload steps.
+#
+# Never use actions/upload-artifact in this repo. This account's Actions
+# artifact storage quota is EXHAUSTED, so any workflow that uploads
+# artifacts will fail. Instead, this job zips the PyInstaller output and
+# pushes it STRAIGHT to the GitHub Release with `gh release upload`.
+# Release assets do not count against artifact storage.
+#
+# Manual workflow_dispatch runs build only (no upload, no tag needed).
+# =====================================================================
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stamp version
+        shell: pwsh
+        run: |
+          $ver = (Get-Content helper/VERSION -Raw).Trim()
+          "HELPER_VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CI deps
+        run: pip install -r packaging/requirements-ci.txt
+
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/jade-helper.spec --noconfirm --clean
+
+      - name: Zip + hash
+        shell: pwsh
+        run: |
+          $zip = "JadeHelper-$env:HELPER_VERSION-win64.zip"
+          Compress-Archive -Path "dist\JadeHelper\*" -DestinationPath $zip -Force
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  $zip" |
+            Out-File -FilePath "SHA256SUMS-win64" -Encoding ascii
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF -replace '^refs/tags/', ''
+          $zip = "JadeHelper-$env:HELPER_VERSION-win64.zip"
+          gh release upload $tag $zip SHA256SUMS-win64 --clobber

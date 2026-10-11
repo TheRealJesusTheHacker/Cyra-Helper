@@ -1,0 +1,11 @@
+# CI deps for the release workflow (windows-latest runner).
+# torch CPU wheel: the runner only needs a buildable import, not a GPU.
+requests
+psutil
+Pillow
+pyinstaller
+torch --index-url https://download.pytorch.org/whl/cpu
+diffusers
+accelerate
+safetensors
+huggingface_hub
