@@ -14,8 +14,10 @@ Never logs the token or the auth key.
 
 import base64
 import ctypes
+import os
 import threading
 import time
+from pathlib import Path
 
 import psutil
 import requests
@@ -96,6 +98,21 @@ class HelperWorker:
     def _headers(self, identity: dict) -> dict:
         return {"Authorization": "Bearer " + identity["token"]}
 
+    @staticmethod
+    def _scrub_paths(text: str) -> str:
+        """Strip local path prefixes that can leak the volunteer's
+        username (e.g. C:\\Users\\Skyler\\...) from text sent to the hub."""
+        out = text
+        for prefix in (
+            os.environ.get("USERPROFILE"),
+            os.environ.get("APPDATA"),
+            os.environ.get("LOCALAPPDATA"),
+            str(Path.home()),
+        ):
+            if prefix:
+                out = out.replace(prefix, "<user-dir>")
+        return out
+
     def _ensure_identity(self) -> dict:
         ident = load_identity()
         if ident:
@@ -143,9 +160,9 @@ class HelperWorker:
             return False
         return not self._fullscreen_active()
 
-    def _post(self, identity: dict, path: str, body: dict):
+    def _post(self, identity: dict, path: str, body: dict, timeout: int = 30):
         url = identity["hub_base"].rstrip("/") + path
-        resp = requests.post(url, json=body, headers=self._headers(identity), timeout=30)
+        resp = requests.post(url, json=body, headers=self._headers(identity), timeout=timeout)
         if resp.status_code == 400:
             try:
                 err = resp.json().get("error", "protocol mismatch")
@@ -258,7 +275,7 @@ class HelperWorker:
         except Exception as e:
             elapsed = time.time() - start
             self._report(identity, job_id, ok=False, image_b64=None,
-                         seconds=elapsed, error=str(e)[:500])
+                         seconds=elapsed, error=self._scrub_paths(str(e))[:500])
         finally:
             self._busy = False
             if not self.paused:
@@ -275,7 +292,14 @@ class HelperWorker:
             "seconds": float(seconds),
             "error": error,
         }
-        try:
-            self._post(identity, JOB_RESULT_PATH, body)
-        except Exception as e:
-            self.on_status(f"result post failed: {e}")
+        # JH2-10: the result is the whole point of the job — give it a
+        # longer timeout and one retry before giving up.
+        for attempt in (1, 2):
+            try:
+                self._post(identity, JOB_RESULT_PATH, body, timeout=60)
+                return
+            except Exception as e:
+                if attempt == 2:
+                    self.on_status(f"result post failed: {e}")
+                else:
+                    time.sleep(5)
