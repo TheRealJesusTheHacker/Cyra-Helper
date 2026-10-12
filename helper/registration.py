@@ -18,7 +18,9 @@ import requests
 
 from helper.protocol import PROTOCOL_V, REGISTER_PATH, valid_body_id
 
-NAME_RE = re.compile(r".{1,64}", re.DOTALL)
+# Helper names: 1..64 chars, no control characters (JH2-8 — the old
+# ".{1,64}" with DOTALL would accept newlines and other control chars).
+NAME_RE = re.compile(r"[^\x00-\x1f]{1,64}")
 
 
 class ProtocolMismatchError(Exception):
