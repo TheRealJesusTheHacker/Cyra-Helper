@@ -21,6 +21,12 @@ from helper.registration import (
     load_identity,
     register,
 )
+import importlib
+
+# The render *module* (not the render function — helper.jobs.__init__
+# re-exports the function under the same attribute name, so a plain
+# "import helper.jobs.render as render_mod" would bind the function).
+render_mod = importlib.import_module("helper.jobs.render")
 from helper.tailscale import hub_reachable, tailscale_up
 from helper.worker import HelperWorker
 
@@ -34,11 +40,35 @@ DIM = "#8a8a90"
 class _Base(tk.Tk):
     def __init__(self):
         super().__init__()
+        # JH2-5/JH2-6: worker callbacks can land after the window is
+        # destroyed. _dead + winfo_exists() guards (via _safe_after) keep
+        # them from raising TclError on a dead widget.
+        self._dead = False
         self.configure(bg=BG)
         self.geometry("400x560")
         self.resizable(False, False)
         self.title("Jade Helper")
         self._style_widgets()
+        self.protocol("WM_DELETE_WINDOW", self._close)
+
+    def _close(self):
+        self._dead = True
+        self.destroy()
+
+    def _safe_after(self, ms, fn):
+        """Like after(), but drops the callback if the window is already
+        gone instead of raising TclError."""
+        if self._dead:
+            return
+
+        def _guarded():
+            if not self._dead and self.winfo_exists():
+                fn()
+
+        try:
+            self.after(ms, _guarded)
+        except tk.TclError:
+            pass
 
     def _style_widgets(self):
         self.option_add("*Background", BG)
@@ -113,7 +143,7 @@ class SetupWizard(_Base):
         return e
 
     def _say(self, text):
-        self.after(0, lambda: self.progress.configure(text=text))
+        self._safe_after(0, lambda: self.progress.configure(text=text))
 
     def _connect(self):
         hub = self.hub_var.get().strip().rstrip("/")
@@ -153,14 +183,15 @@ class SetupWizard(_Base):
             self.after(0, self._relaunch)
         except (ProtocolMismatchError, BlockedError, RuntimeError) as e:
             self._say("")
-            self.after(0, lambda: messagebox.showerror("Setup", str(e)))
-            self.after(0, lambda: self.connect_btn.configure(state=tk.NORMAL))
+            self._safe_after(0, lambda: messagebox.showerror("Setup", str(e)))
+            self._safe_after(0, lambda: self.connect_btn.configure(state=tk.NORMAL))
         except Exception as e:
             self._say("")
-            self.after(0, lambda: messagebox.showerror("Setup", f"Connection failed: {e}"))
-            self.after(0, lambda: self.connect_btn.configure(state=tk.NORMAL))
+            self._safe_after(0, lambda: messagebox.showerror("Setup", f"Connection failed: {e}"))
+            self._safe_after(0, lambda: self.connect_btn.configure(state=tk.NORMAL))
 
     def _relaunch(self):
+        self._dead = True
         self.destroy()
         MainWindow().mainloop()
 
@@ -206,21 +237,48 @@ class MainWindow(_Base):
             SetupWizard().mainloop()
             return
         self.name_label.configure(text=ident.get("name", ""))
+        # JH2-3: the GUI side of model approval — a job naming an unknown
+        # model pops a yes/no dialog; the answer is remembered on disk.
+        render_mod.consent_callback = self._ask_model_consent
         self.worker = HelperWorker(
             on_status=self._on_status,
             on_stats=self._on_stats,
         )
         self.worker.start()
 
+    def _ask_model_consent(self, model: str) -> bool:
+        """Called on the worker thread when a job names an unapproved
+        model. Marshals the question onto the GUI thread and waits for
+        the volunteer's answer (up to 5 minutes, then refuse)."""
+        answer: dict = {}
+        done = threading.Event()
+
+        def _ask():
+            try:
+                answer["ok"] = messagebox.askyesno(
+                    "New model",
+                    f"The hub wants to use a new model:\n\n{model}\n\n"
+                    "The first use downloads several GB. Allow it?",
+                    parent=self,
+                )
+            except Exception:
+                answer["ok"] = False
+            finally:
+                done.set()
+
+        self._safe_after(0, _ask)
+        done.wait(300)
+        return bool(answer.get("ok"))
+
     def _on_status(self, text):
-        self.after(0, lambda: self.status_var.set(text.capitalize()))
+        self._safe_after(0, lambda: self.status_var.set(text.capitalize()))
 
     def _on_stats(self, stats):
         hours = stats["seconds_contributed"] / 3600
         text = (f"Jobs completed: {stats['jobs_completed']}   •   "
                 f"Images rendered: {stats['images_rendered']}\n"
                 f"Time contributed: {hours:.1f} h")
-        self.after(0, lambda: self.stats_var.set(text))
+        self._safe_after(0, lambda: self.stats_var.set(text))
 
     # ---------------------------------------------------------------- actions
     def _toggle_pause(self):
@@ -241,10 +299,12 @@ class MainWindow(_Base):
         if self.worker:
             self.worker.stop()
         delete_identity()
+        self._dead = True
         self.destroy()
         SetupWizard().mainloop()
 
     def _quit(self):
+        self._dead = True
         if self.worker:
             self.worker.stop()
         self.destroy()
