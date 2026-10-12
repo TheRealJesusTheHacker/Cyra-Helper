@@ -46,6 +46,7 @@ Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-
 
 - **Idle detection:** the worker only fetches jobs when your CPU is under the idle threshold (default 40%) and no fullscreen app is running (so it never steals your game).
 - **Tune it:** console mode takes `--idle-cpu <percent>` — lower means pickier. Example: `JadeHelper.exe --console --idle-cpu 25`.
+- **New models:** the hub can ask for a model you don't have yet. The app always asks before downloading anything multi-GB (a yes/no dialog in the GUI, a prompt in console mode) and remembers each answer — every model is only asked about once. Console mode can pre-approve with `--allow-model owner/repo` (repeatable).
 - **Pause:** the Pause button (or Ctrl+C in console mode) stops new jobs immediately. The current render finishes first so nothing is lost; the hub just won't send more.
 - **Stats:** the main window shows jobs completed, images rendered, and hours contributed.
 
