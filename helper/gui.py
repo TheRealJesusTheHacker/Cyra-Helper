@@ -56,10 +56,11 @@ class _Base(tk.Tk):
         self.option_add("*Button.PadY", 6)
 
     def label(self, parent, text, **kw):
+        pack_kw = kw.pop("pack_kw", {"pady": 4})
         kw.setdefault("bg", BG)
         kw.setdefault("fg", kw.pop("fg", TEXT))
         w = tk.Label(parent, text=text, **kw)
-        w.pack(**kw.pop("pack_kw", {"pady": 4}))
+        w.pack(**pack_kw)
         return w
 
     def accent_button(self, parent, text, command):
