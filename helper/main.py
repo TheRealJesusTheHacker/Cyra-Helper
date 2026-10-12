@@ -25,21 +25,61 @@ def _read_config(path: str | None) -> dict:
     if not path:
         return {}
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         print(f"Could not read --config {path}: {e}", file=sys.stderr)
         return {}
+    # JH2-7: a config that parses to a non-object (list, string, …) would
+    # blow up later on .get(); reject it here instead.
+    if not isinstance(data, dict):
+        print(f"Could not read --config {path}: top level must be a JSON object",
+              file=sys.stderr)
+        return {}
+    return data
 
 
-def _run_console(hub_base: str, name: str, idle_cpu: float) -> int:
+def _run_console(hub_base: str, name: str, idle_cpu: float,
+                 allow_models: list | None = None) -> int:
+    # importlib, not "import helper.jobs.render as …": the package's
+    # __init__ re-exports the render *function* under the same attribute
+    # name, which would shadow the module.
+    import importlib
+    render_mod = importlib.import_module("helper.jobs.render")
     from helper.worker import HelperWorker
 
     status_event = threading.Event()
 
     def on_status(text: str):
         print(f"[helper] {text}", flush=True)
-        if text in ("blocked",) or text.startswith("registration failed"):
+        # JH2-1: exit cleanly on any terminal auth/protocol failure, not
+        # just "blocked" — otherwise console mode hangs forever on 400/401.
+        if text in ("blocked",) or text.startswith(
+            ("registration failed", "protocol mismatch", "bad token")
+        ):
             status_event.set()
+
+    # JH2-3: pre-approve models named on the command line.
+    render_mod.allowed_models |= {m.strip() for m in (allow_models or [])
+                                 if m and m.strip()}
+
+    def _console_consent(model: str) -> bool:
+        """Ask the volunteer (interactive TTY) before the first download
+        of an unknown model; refuse outright when there's nobody to ask."""
+        if sys.stdin.isatty():
+            try:
+                ans = input(
+                    f"[helper] The hub wants to download a new model: {model}\n"
+                    "That's a multi-GB download the first time. Allow it? [y/N] "
+                ).strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return False
+            return ans in ("y", "yes")
+        print(f"[helper] refusing unknown model {model!r} — "
+              "re-run with --allow-model <owner/repo> to permit it",
+              file=sys.stderr)
+        return False
+
+    render_mod.consent_callback = _console_consent
 
     worker = HelperWorker(
         hub_base=hub_base,
@@ -77,6 +117,10 @@ def main(argv=None) -> int:
                         help="JSON config for unattended console registration")
     parser.add_argument("--idle-cpu", type=float, default=40.0,
                         help="CPU%% below which the machine counts as idle (default 40)")
+    parser.add_argument("--allow-model", action="append", default=[],
+                        metavar="MODEL",
+                        help="pre-approve a Hugging Face model id (owner/repo) "
+                             "for download, no prompt asked; repeatable")
     args = parser.parse_args(argv)
 
     if not args.console:
@@ -93,7 +137,7 @@ def main(argv=None) -> int:
         print("[helper] No identity yet — run the GUI once to pair, "
               "or pass --config with hub_base.", file=sys.stderr)
         return 2
-    return _run_console(hub_base, name, args.idle_cpu)
+    return _run_console(hub_base, name, args.idle_cpu, args.allow_model)
 
 
 if __name__ == "__main__":
