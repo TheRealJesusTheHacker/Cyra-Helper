@@ -52,6 +52,8 @@ def load_identity() -> dict | None:
         data = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    if not isinstance(data, dict):
+        return None
     if not valid_body_id(data.get("body_id")) or not data.get("token"):
         return None
     return data
