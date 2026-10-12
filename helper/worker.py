@@ -146,6 +146,14 @@ class HelperWorker:
     def _post(self, identity: dict, path: str, body: dict):
         url = identity["hub_base"].rstrip("/") + path
         resp = requests.post(url, json=body, headers=self._headers(identity), timeout=30)
+        if resp.status_code == 400:
+            try:
+                err = resp.json().get("error", "protocol mismatch")
+            except Exception:
+                err = "protocol mismatch"
+            self.on_status(f"protocol mismatch: {err}")
+            self._stop_event.set()
+            return None
         if resp.status_code == 403:
             self.on_status("blocked")
             self._stop_event.set()
@@ -217,6 +225,25 @@ class HelperWorker:
 
         self._busy = True
         self.on_status("working")
+        # Tell the hub we're busy right away so a long render doesn't make
+        # us look dead before the next scheduled heartbeat. Best-effort: a
+        # failed POST must not cancel the render.
+        try:
+            self._post(
+                identity,
+                HEARTBEAT_PATH,
+                {
+                    "protocol_v": PROTOCOL_V,
+                    "body_id": identity["body_id"],
+                    "cpu_pct": float(psutil.cpu_percent(interval=None)),
+                    "mem_pct": float(psutil.virtual_memory().percent),
+                    "gpu_free_vram_gb": self._free_vram_gb(),
+                    "busy": True,
+                    "paused": False,
+                },
+            )
+        except Exception as e:
+            self.on_status(f"busy heartbeat failed: {e}")
         start = time.time()
         try:
             png = render(job.get("params") or {})
