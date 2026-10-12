@@ -20,7 +20,7 @@ No approval. No account. No waiting list. Download, run, done — you're contrib
 
 ## How it works
 
-Jade Helper is a small background worker. It watches your system and only takes work when your PC is actually idle — low CPU, no fullscreen app running. The moment you come back to your computer, it backs off. You set how aggressive it is, and the Pause button works instantly, no questions asked.
+Jade Helper is a small background worker. It watches your system and only takes work when your PC is actually idle — low CPU, no fullscreen app running. When you come back to your computer, it stops picking up new work. A render that's already in flight runs to completion first — renders aren't preemptible, so expect the GPU to stay busy for a few minutes after you return. You set how aggressive it is, and the Pause button stops new jobs immediately, no questions asked.
 
 It renders images with Stable Diffusion, locally, on your GPU, and sends the finished image back. Then it asks for the next one.
 
