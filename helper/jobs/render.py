@@ -13,8 +13,15 @@ Errors are honest: no usable GPU/device raises with a plain message.
 """
 
 import io
+import re
 
 DEFAULT_MODEL = "runwayml/stable-diffusion-v1-5"
+
+# Hub-supplied model ids must look like a plain Hugging Face repo id
+# ("owner/repo"). from_pretrained would otherwise happily load local
+# paths or crafted repo ids — a malicious hub could run code via
+# downloaded model files. Anything else is rejected outright.
+_MODEL_RE = re.compile(r"^[\w.\-]+/[\w.\-]+$")
 
 _MIN_DIM, _MAX_DIM = 64, 2048
 _MIN_STEPS, _MAX_STEPS = 1, 150
@@ -77,8 +84,12 @@ def render(params: dict) -> bytes:
         raise ValueError("job params missing a prompt")
 
     model = (params.get("model") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    width = _clamp(params.get("width", 512), _MIN_DIM, _MAX_DIM)
-    height = _clamp(params.get("height", 512), _MIN_DIM, _MAX_DIM)
+    if not _MODEL_RE.fullmatch(model):
+        raise ValueError(f"invalid model identifier: {model!r}")
+    # diffusers needs dims divisible by 8 (latent space is /8); round down
+    # after clamping. 64..2048 clamping already guarantees >= 8-aligned 64.
+    width = _clamp(params.get("width", 512), _MIN_DIM, _MAX_DIM) // 8 * 8
+    height = _clamp(params.get("height", 512), _MIN_DIM, _MAX_DIM) // 8 * 8
     steps = _clamp(params.get("steps", 30), _MIN_STEPS, _MAX_STEPS)
     negative = params.get("negative_prompt") or ""
 
