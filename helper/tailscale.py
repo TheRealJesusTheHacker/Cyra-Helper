@@ -8,26 +8,34 @@ ACL design (on Skyler's side, for reference):
     no other port, no subnet route. The tag is assigned at key creation;
     volunteers never pick tags themselves.
 
-The auth key is never logged or written to disk by this module — it goes
-straight into the `tailscale up` subprocess arguments.
+The auth key is never logged or written to disk by this module — it is
+passed to `tailscale up` via the TS_AUTHKEY environment variable (so it
+never appears in subprocess argv / Task Manager), and the child process
+receives a copy of the environment containing it.
 """
 
+import os
 import socket
 import subprocess
 
 
 def tailscale_up(auth_key: str) -> None:
-    """Run `tailscale up --auth-key=<key>` so this machine joins the tailnet.
+    """Run `tailscale up` so this machine joins the tailnet.
 
-    The key is passed as a subprocess argument and is never logged.
+    The auth key is passed via the TS_AUTHKEY environment variable rather
+    than `--auth-key=` argv, so it is not visible in process listings
+    (e.g. Task Manager). It is never logged.
     Raises RuntimeError if tailscale is missing or the join fails.
     """
+    env = dict(os.environ)
+    env["TS_AUTHKEY"] = auth_key
     try:
         proc = subprocess.run(
-            ["tailscale", "up", f"--auth-key={auth_key}"],
+            ["tailscale", "up"],
             capture_output=True,
             text=True,
             timeout=120,
+            env=env,
         )
     except FileNotFoundError as e:
         raise RuntimeError("tailscale not found — install Tailscale first (see HELPER.md)") from e
