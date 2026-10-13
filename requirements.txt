@@ -7,7 +7,7 @@ Pillow==12.3.0
 diffusers==0.41.0
 accelerate==1.15.0
 safetensors==0.8.0
-huggingface_hub==1.33.0
+huggingface_hub==2.2.0
 # torch: install the CUDA build matching the volunteer's GPU, or the CPU build.
 #   CUDA (NVIDIA):  pip install torch --index-url https://download.pytorch.org/whl/cu121
 #   CPU only:       pip install torch --index-url https://download.pytorch.org/whl/cpu
