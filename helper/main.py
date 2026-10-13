@@ -35,6 +35,14 @@ def _read_config(path: str | None) -> dict:
         print(f"Could not read --config {path}: top level must be a JSON object",
               file=sys.stderr)
         return {}
+    # BH2: hub_base/name must be strings — a numeric hub_base sails through
+    # here and then crashes HelperWorker construction on .rstrip() with a
+    # bare AttributeError. Reject the config loudly instead.
+    for key in ("hub_base", "name"):
+        if data.get(key) is not None and not isinstance(data[key], str):
+            print(f"Could not read --config {path}: {key!r} must be a string",
+                  file=sys.stderr)
+            return {}
     return data
 
 
@@ -122,6 +130,14 @@ def main(argv=None) -> int:
                         help="pre-approve a Hugging Face model id (owner/repo) "
                              "for download, no prompt asked; repeatable")
     args = parser.parse_args(argv)
+
+    # BH2: --idle-cpu is a percentage threshold, and out-of-range values
+    # silently broke the idle gate in both directions: negative meant the
+    # helper NEVER counted as idle (so it never took a job, heartbeating
+    # forever), while >100 or NaN meant it ALWAYS counted as idle. Reject
+    # loudly instead of running a helper that misbehaves in silence.
+    if not 0.0 <= args.idle_cpu <= 100.0:
+        parser.error(f"--idle-cpu must be between 0 and 100 (got {args.idle_cpu})")
 
     if not args.console:
         from helper.gui import run_gui
