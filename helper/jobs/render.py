@@ -17,6 +17,7 @@ Errors are honest: no usable GPU/device raises with a plain message.
 """
 
 import io
+import os
 import re
 
 DEFAULT_MODEL = "runwayml/stable-diffusion-v1-5"
@@ -68,9 +69,12 @@ def _save_known_models(models: set) -> None:
     try:
         import json
 
-        _known_models_path().write_text(
-            json.dumps(sorted(models), indent=2), encoding="utf-8"
-        )
+        p = _known_models_path()
+        # JH3: write-then-replace so a crash mid-write can't corrupt the
+        # approvals file (a torn file would re-prompt for every model).
+        tmp = p.with_name(p.name + ".tmp")
+        tmp.write_text(json.dumps(sorted(models), indent=2), encoding="utf-8")
+        os.replace(tmp, p)
     except OSError:
         pass
 
@@ -164,6 +168,12 @@ def render(params: dict) -> bytes:
 
     model = (params.get("model") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
     if not _MODEL_RE.fullmatch(model):
+        raise ValueError(f"invalid model identifier: {model!r}")
+    # JH3: the regex alone lets "." / ".." segments through ("../foo",
+    # "foo/.."), and from_pretrained treats an id that names an existing
+    # relative path as a LOCAL directory. A hub-supplied id must only
+    # ever be a Hugging Face repo id, never a filesystem path.
+    if any(seg in (".", "..") for seg in model.split("/")):
         raise ValueError(f"invalid model identifier: {model!r}")
     # diffusers needs dims divisible by 8 (latent space is /8); round down
     # after clamping. 64..2048 clamping already guarantees >= 8-aligned 64.
