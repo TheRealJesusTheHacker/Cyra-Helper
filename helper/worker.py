@@ -117,6 +117,20 @@ class HelperWorker:
                 out = out.replace(prefix, "<user-dir>")
         return out
 
+    def _heartbeat_body(self, identity: dict, busy: bool, paused: bool) -> dict:
+        """The heartbeat payload (protocol contract — see protocol.py).
+        Built identically for the poll-loop heartbeat and the busy
+        heartbeats sent while a render runs."""
+        return {
+            "protocol_v": PROTOCOL_V,
+            "body_id": identity["body_id"],
+            "cpu_pct": float(psutil.cpu_percent(interval=None)),
+            "mem_pct": float(psutil.virtual_memory().percent),
+            "gpu_free_vram_gb": self._free_vram_gb(),
+            "busy": bool(busy),
+            "paused": bool(paused),
+        }
+
     def _ensure_identity(self) -> dict:
         ident = load_identity()
         if ident:
@@ -199,15 +213,7 @@ class HelperWorker:
         while not self._stop_event.is_set():
             paused_now = self.paused
             try:
-                hb = {
-                    "protocol_v": PROTOCOL_V,
-                    "body_id": identity["body_id"],
-                    "cpu_pct": float(psutil.cpu_percent(interval=None)),
-                    "mem_pct": float(psutil.virtual_memory().percent),
-                    "gpu_free_vram_gb": self._free_vram_gb(),
-                    "busy": bool(self._busy),
-                    "paused": bool(paused_now),
-                }
+                hb = self._heartbeat_body(identity, busy=self._busy, paused=paused_now)
                 hb_resp = self._post(identity, HEARTBEAT_PATH, hb)
                 if hb_resp is None:
                     break  # blocked or bad token — status already set
@@ -236,15 +242,7 @@ class HelperWorker:
             self._post(
                 identity,
                 HEARTBEAT_PATH,
-                {
-                    "protocol_v": PROTOCOL_V,
-                    "body_id": identity["body_id"],
-                    "cpu_pct": float(psutil.cpu_percent(interval=None)),
-                    "mem_pct": float(psutil.virtual_memory().percent),
-                    "gpu_free_vram_gb": self._free_vram_gb(),
-                    "busy": True,
-                    "paused": bool(self.paused),
-                },
+                self._heartbeat_body(identity, busy=True, paused=self.paused),
             )
         except Exception as e:
             self.on_status(f"busy heartbeat failed: {e}")
