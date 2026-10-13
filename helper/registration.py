@@ -57,7 +57,14 @@ def load_identity() -> dict | None:
         return None
     if not isinstance(data, dict):
         return None
-    if not valid_body_id(data.get("body_id")) or not data.get("token"):
+    if not valid_body_id(data.get("body_id")):
+        return None
+    # The bearer token must be a string: _headers() concatenates it, and a
+    # non-string token (hand-edited/corrupt file) would raise TypeError on
+    # EVERY post, wedging the worker on "heartbeat failed" forever instead
+    # of offering re-pairing (BH2: same family as the JH3 hub_base fix).
+    token = data.get("token")
+    if not isinstance(token, str) or not token:
         return None
     # JH3: an identity without hub_base is corrupt — the worker would
     # KeyError on every POST and spin on "heartbeat failed" forever
@@ -160,7 +167,14 @@ def register(hub_base: str, name: str, capabilities: dict) -> dict:
     if resp.status_code == 403:
         raise BlockedError(_hub_error(resp, "blocked"))
     resp.raise_for_status()
-    data = resp.json()
+    # BH2: the 200 body may not be JSON at all (proxy page, captive
+    # portal, …). JH3 guarded the token lookup but not this call — a bare
+    # ValueError escaped register() with a parser message no volunteer
+    # can act on. Fail with a clear message instead.
+    try:
+        data = resp.json()
+    except ValueError as e:
+        raise RuntimeError(f"hub registration response was not JSON: {e}") from e
     # JH3: a 200 without a token is a broken hub response — fail with a
     # clear message, not a bare KeyError.
     token = data.get("token") if isinstance(data, dict) else None
