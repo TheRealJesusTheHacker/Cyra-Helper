@@ -80,7 +80,7 @@ A `--console` debug twin, `JadeHelper-debug.exe`, ships next to the main exe and
 |---|---|
 | "tailscale not found" | Install Tailscale (step 2), then restart the app. |
 | "Hub not reachable" | Check the hub address. Make sure Tailscale shows as connected (look for the Tailscale icon in the system tray). |
-| "protocol mismatch … update your Jade Helper" | Your helper is out of date — grab the newest release. The hub and helper must speak the same protocol version. |
+| "protocol mismatch … update your Jade Helper" | Your helper is out of date — grab the newest release. The hub and helper must speak the same protocol version. Verify the download first: each release ships a `SHA256SUMS-win64` file next to the zip — run `Get-FileHash <the-zip> -Algorithm SHA256` in PowerShell and check the hash matches before unzipping. |
 | "blocked" | This machine's ID was blocklisted by the hub. If you think that's wrong, contact me. |
 | "bad token — re-pair in the app" | The stored token stopped working. Unpair and run setup again. |
 | Renders fail / out of memory | Your GPU ran out of VRAM. The worker reports the failure honestly and moves on — nothing breaks. A card with more VRAM helps. |
