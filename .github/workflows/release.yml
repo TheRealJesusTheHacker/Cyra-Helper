@@ -4,8 +4,10 @@
 # Never use actions/upload-artifact in this repo. This account's Actions
 # artifact storage quota is EXHAUSTED, so any workflow that uploads
 # artifacts will fail. Instead, this job zips the PyInstaller output and
-# pushes it STRAIGHT to the GitHub Release with `gh release upload`.
-# Release assets do not count against artifact storage.
+# pushes it STRAIGHT to the GitHub Release with
+# softprops/action-gh-release (Releases API — it creates the release for
+# a new tag when none exists yet). Release assets do not count against
+# artifact storage.
 #
 # Manual workflow_dispatch runs build only (no upload, no tag needed).
 # =====================================================================
@@ -25,7 +27,7 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Stamp version
         shell: pwsh
@@ -34,7 +36,7 @@ jobs:
           "HELPER_VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
@@ -54,10 +56,8 @@ jobs:
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = $env:GITHUB_REF -replace '^refs/tags/', ''
-          $zip = "JadeHelper-$env:HELPER_VERSION-win64.zip"
-          gh release upload $tag $zip SHA256SUMS-win64 --clobber
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: |
+            JadeHelper-${{ env.HELPER_VERSION }}-win64.zip
+            SHA256SUMS-win64
