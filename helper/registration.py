@@ -58,6 +58,11 @@ def load_identity() -> dict | None:
         return None
     if not valid_body_id(data.get("body_id")) or not data.get("token"):
         return None
+    # JH3: an identity without hub_base is corrupt — the worker would
+    # KeyError on every POST and spin on "heartbeat failed" forever
+    # instead of ever offering re-pairing. register() always writes one.
+    if not isinstance(data.get("hub_base"), str) or not data["hub_base"]:
+        return None
     return data
 
 
@@ -68,7 +73,12 @@ def save_identity(identity: dict) -> None:
     defense-in-depth, not a guarantee. The token is never logged anywhere.
     """
     p = identity_path()
-    p.write_text(json.dumps(identity, indent=2), encoding="utf-8")
+    # JH3: write-then-replace so a crash mid-write can't leave a torn
+    # identity file behind (a torn file loads as "no identity" and the
+    # volunteer's pairing is silently lost).
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(identity, indent=2), encoding="utf-8")
+    os.replace(tmp, p)
     try:
         os.chmod(p, 0o600)  # best-effort; Windows honors only read-only
     except OSError:
@@ -110,6 +120,17 @@ def gather_capabilities() -> dict:
     }
 
 
+def _hub_error(resp, default: str) -> str:
+    """The hub's error string from a response, or ``default`` when the
+    body isn't the JSON contract (an error page, a proxy, …). Mirrors
+    the guarded parse in helper.worker._post (JH3)."""
+    try:
+        err = resp.json().get("error", default)
+        return err if isinstance(err, str) else default
+    except Exception:
+        return default
+
+
 def register(hub_base: str, name: str, capabilities: dict) -> dict:
     """Register a new helper with the hub and persist the identity.
 
@@ -136,16 +157,19 @@ def register(hub_base: str, name: str, capabilities: dict) -> dict:
     }
     resp = requests.post(hub_base + REGISTER_PATH, json=body, timeout=30)
     if resp.status_code == 400:
-        err = resp.json().get("error", "protocol mismatch")
-        raise ProtocolMismatchError(err)
+        raise ProtocolMismatchError(_hub_error(resp, "protocol mismatch"))
     if resp.status_code == 403:
-        err = resp.json().get("error", "blocked")
-        raise BlockedError(err)
+        raise BlockedError(_hub_error(resp, "blocked"))
     resp.raise_for_status()
     data = resp.json()
+    # JH3: a 200 without a token is a broken hub response — fail with a
+    # clear message, not a bare KeyError.
+    token = data.get("token") if isinstance(data, dict) else None
+    if not token:
+        raise RuntimeError("hub registration response did not include a token")
     identity = {
         "body_id": body_id,
-        "token": data["token"],
+        "token": token,
         "hub_base": hub_base,
         "name": name,
         "hub_id": data.get("hub_id", ""),
