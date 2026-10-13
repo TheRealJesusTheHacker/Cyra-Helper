@@ -272,7 +272,14 @@ class HelperWorker:
             self.on_status("job fetch failed: malformed job payload")
             return
 
-        job_id = job.get("job_id", "")
+        # BH2: a job without a usable id can never be accepted or deduped
+        # by the hub (the result contract keys on job_id) — rendering it
+        # would burn the volunteer's GPU for a result the hub must throw
+        # away, and report it under a bogus id. Refuse it up front.
+        job_id = job.get("job_id")
+        if not isinstance(job_id, str) or not job_id:
+            self.on_status("job fetch failed: job without a valid id")
+            return
         if job.get("type") != "media.render":
             self._report(identity, job_id, ok=False, image_b64=None, seconds=0.0,
                          error=f"unsupported job type: {job.get('type')}")
