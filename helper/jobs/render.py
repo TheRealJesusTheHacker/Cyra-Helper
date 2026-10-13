@@ -17,6 +17,7 @@ Errors are honest: no usable GPU/device raises with a plain message.
 """
 
 import io
+import json
 import os
 import re
 
@@ -55,8 +56,6 @@ def _known_models_path():
 def _load_known_models() -> set:
     """Models the volunteer approved in earlier sessions (persisted set)."""
     try:
-        import json
-
         data = json.loads(_known_models_path().read_text(encoding="utf-8"))
         if isinstance(data, list):
             return {str(m) for m in data if isinstance(m, str)}
@@ -67,8 +66,6 @@ def _load_known_models() -> set:
 
 def _save_known_models(models: set) -> None:
     try:
-        import json
-
         p = _known_models_path()
         # JH3: write-then-replace so a crash mid-write can't corrupt the
         # approvals file (a torn file would re-prompt for every model).
@@ -204,5 +201,11 @@ def render(params: dict) -> bytes:
     ).images[0]
 
     buf = io.BytesIO()
-    image.save(buf, format="PNG")
+    # PNG is lossless at every compress_level — the decoded pixels are
+    # identical; only the DEFLATE effort changes. Level 1 encodes ~5x
+    # faster than PIL's default (6) for ~4% larger output (measured on
+    # photo-like images at 1024^2 and 2048^2, 2026-10-13 perf pass),
+    # which is pure per-job overhead removed from the volunteer's
+    # machine; the size delta is negligible on the result POST.
+    image.save(buf, format="PNG", compress_level=1)
     return buf.getvalue()
