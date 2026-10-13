@@ -20,6 +20,7 @@ import io
 import json
 import os
 import re
+import threading
 
 DEFAULT_MODEL = "runwayml/stable-diffusion-v1-5"
 
@@ -45,6 +46,13 @@ _MIN_STEPS, _MAX_STEPS = 1, 150
 
 _pipeline = None
 _pipeline_model = None
+# BH2: loads are serialized. Callers run on more than one thread across
+# the app's life — a render thread orphaned by a stop/unpair can still be
+# inside from_pretrained when a relaunched worker starts a job for the
+# same model. Without serialization both threads loaded a full pipeline
+# (double VRAM, one leaked), because the cache check + assignment weren't
+# atomic. The lock is uncontended in the normal single-job flow.
+_pipeline_lock = threading.Lock()
 
 
 def _known_models_path():
@@ -102,6 +110,12 @@ def _model_approved(model: str) -> bool:
 def _clamp(value, lo, hi):
     try:
         v = int(value)
+    except OverflowError:
+        # ±inf reaches int() as OverflowError, not ValueError — and JSON
+        # decoders that accept Infinity (Python's default) let a hub send
+        # it. Infinitely large clamps to hi, infinitely small to lo
+        # (BH2: this used to escape render() as a raw OverflowError).
+        v = hi if value > 0 else lo
     except (TypeError, ValueError):
         v = lo
     return max(lo, min(hi, v))
@@ -121,36 +135,37 @@ def _device() -> str:
 def _load_pipeline(model: str):
     """Load (once) the diffusers pipeline for ``model``. Keeps it cached."""
     global _pipeline, _pipeline_model
-    if _pipeline is not None and _pipeline_model == model:
-        return _pipeline
-    if not _model_approved(model):
-        raise RuntimeError(
-            f"model {model!r} was not approved by the volunteer — "
-            "approve new models in the app or pass --allow-model <owner/repo> "
-            "in console mode"
-        )
-    try:
-        from diffusers import StableDiffusionPipeline
-    except ImportError as e:
-        raise RuntimeError(
-            "diffusers is not installed — install the requirements first"
-        ) from e
-    device = _device()
-    try:
-        import torch
+    with _pipeline_lock:
+        if _pipeline is not None and _pipeline_model == model:
+            return _pipeline
+        if not _model_approved(model):
+            raise RuntimeError(
+                f"model {model!r} was not approved by the volunteer — "
+                "approve new models in the app or pass --allow-model <owner/repo> "
+                "in console mode"
+            )
+        try:
+            from diffusers import StableDiffusionPipeline
+        except ImportError as e:
+            raise RuntimeError(
+                "diffusers is not installed — install the requirements first"
+            ) from e
+        device = _device()
+        try:
+            import torch
 
-        dtype = torch.float16 if device == "cuda" else torch.float32
-    except Exception:
-        dtype = None
-    # use_safetensors: refuse pickle .bin weights entirely — a poisoned
-    # checkpoint can't run code through torch.load if we never torch.load.
-    # trust_remote_code=False: never execute model-repo code.
-    pipe = StableDiffusionPipeline.from_pretrained(
-        model, torch_dtype=dtype, use_safetensors=True, trust_remote_code=False
-    )
-    pipe = pipe.to(device)
-    _pipeline, _pipeline_model = pipe, model
-    return pipe
+            dtype = torch.float16 if device == "cuda" else torch.float32
+        except Exception:
+            dtype = None
+        # use_safetensors: refuse pickle .bin weights entirely — a poisoned
+        # checkpoint can't run code through torch.load if we never torch.load.
+        # trust_remote_code=False: never execute model-repo code.
+        pipe = StableDiffusionPipeline.from_pretrained(
+            model, torch_dtype=dtype, use_safetensors=True, trust_remote_code=False
+        )
+        pipe = pipe.to(device)
+        _pipeline, _pipeline_model = pipe, model
+        return pipe
 
 
 def render(params: dict) -> bytes:
@@ -159,11 +174,20 @@ def render(params: dict) -> bytes:
     params keys: prompt, negative_prompt, width, height, steps,
                  seed (int or None), model (str, optional).
     """
+    # BH2: hub params are untrusted shapes. A non-string prompt/model used
+    # to die as AttributeError on .strip() (wrong error, cryptic message),
+    # and a non-string negative_prompt passed straight into the pipeline
+    # call. Fail with the honest ValueError / drop the optional field.
     prompt = params.get("prompt") or ""
+    if not isinstance(prompt, str):
+        raise ValueError("job params prompt must be a string")
     if not prompt.strip():
         raise ValueError("job params missing a prompt")
 
-    model = (params.get("model") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    model = params.get("model")
+    if model is not None and not isinstance(model, str):
+        raise ValueError(f"invalid model identifier: {model!r}")
+    model = (model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
     if not _MODEL_RE.fullmatch(model):
         raise ValueError(f"invalid model identifier: {model!r}")
     # JH3: the regex alone lets "." / ".." segments through ("../foo",
@@ -178,6 +202,8 @@ def render(params: dict) -> bytes:
     height = _clamp(params.get("height", 512), _MIN_DIM, _MAX_DIM) // 8 * 8
     steps = _clamp(params.get("steps", 30), _MIN_STEPS, _MAX_STEPS)
     negative = params.get("negative_prompt") or ""
+    if not isinstance(negative, str):
+        negative = ""
 
     pipe = _load_pipeline(model)
 
