@@ -40,7 +40,7 @@ IDENTITY = {
 
 # --------------------------------------------------------------------- render
 class _FakeImage:
-    def save(self, buf, format=None):
+    def save(self, buf, format=None, **_kwargs):
         buf.write(b"\x89PNG-fake")
 
 
@@ -76,6 +76,33 @@ def test_render_happy_path_with_fake_pipeline(monkeypatch):
     monkeypatch.setattr(render_mod, "_load_pipeline", lambda m: _FakePipe())
     png = render_mod.render({"prompt": "a dog", "width": 500, "height": 500})
     assert png == b"\x89PNG-fake"
+
+
+def test_render_png_uses_fast_compression(monkeypatch):
+    # Perf pass 2026-10-13: PNG is lossless at any compress_level, so
+    # render() encodes at level 1 (~5x faster than PIL's default 6 for
+    # ~4% more bytes; decoded pixels identical). Pin the kwarg so the
+    # per-job overhead doesn't creep back.
+    seen = {}
+
+    class _RecordingImage:
+        def save(self, buf, format=None, **kwargs):
+            seen["format"] = format
+            seen.update(kwargs)
+            buf.write(b"\x89PNG-fake")
+
+    class _Pipe:
+        def __call__(self, **kwargs):
+            class _Out:
+                images = [_RecordingImage()]
+
+            return _Out()
+
+    monkeypatch.setattr(render_mod, "_load_pipeline", lambda m: _Pipe())
+    png = render_mod.render({"prompt": "a dog"})
+    assert png == b"\x89PNG-fake"
+    assert seen["format"] == "PNG"
+    assert seen["compress_level"] == 1
 
 
 def test_render_clamps_dimensions(monkeypatch):
@@ -196,6 +223,24 @@ def test_save_identity_is_atomic_no_tmp_left(monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------- worker
+def test_heartbeat_body_matches_contract():
+    # Perf pass 2026-10-13: both heartbeat sites build the payload via
+    # HelperWorker._heartbeat_body — pin the contract shape (protocol.py)
+    # and the busy/paused pass-through.
+    w = HelperWorker()
+    body = w._heartbeat_body(IDENTITY, busy=True, paused=False)
+    assert set(body) == {
+        "protocol_v", "body_id", "cpu_pct", "mem_pct",
+        "gpu_free_vram_gb", "busy", "paused",
+    }
+    assert body["protocol_v"] == worker_mod.PROTOCOL_V
+    assert body["body_id"] == IDENTITY["body_id"]
+    assert body["busy"] is True and body["paused"] is False
+    assert isinstance(body["cpu_pct"], float)
+    assert isinstance(body["mem_pct"], float)
+    assert isinstance(body["gpu_free_vram_gb"], float)
+
+
 def _worker_with_fake_post(job_payload, monkeypatch, render_impl=None):
     """A HelperWorker whose _post returns job_payload for job/fetch and
     records every call. render is replaced when render_impl is given."""
