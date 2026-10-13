@@ -9,6 +9,7 @@ Idle/Working/Paused), contribution stats, Pause/Resume, and Unpair
 (deletes the identity and stops the worker).
 """
 
+import importlib
 import threading
 import tkinter as tk
 from tkinter import messagebox
@@ -21,7 +22,6 @@ from helper.registration import (
     load_identity,
     register,
 )
-import importlib
 
 # The render *module* (not the render function — helper.jobs.__init__
 # re-exports the function under the same attribute name, so a plain

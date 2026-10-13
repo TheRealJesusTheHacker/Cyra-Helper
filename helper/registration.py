@@ -14,6 +14,7 @@ import re
 import secrets
 from pathlib import Path
 
+import psutil
 import requests
 
 from helper.protocol import PROTOCOL_V, REGISTER_PATH, valid_body_id
@@ -95,8 +96,6 @@ def delete_identity() -> None:
 
 def gather_capabilities() -> dict:
     """Probe the machine for the capabilities block sent at registration."""
-    import psutil
-
     cpu_count = os.cpu_count() or 1
     ram_gb = round(psutil.virtual_memory().total / (1024 ** 3), 2)
 

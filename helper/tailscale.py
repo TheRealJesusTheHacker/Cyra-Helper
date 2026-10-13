@@ -52,21 +52,3 @@ def hub_reachable(host: str, port: int, timeout: float = 10.0) -> bool:
             return True
     except OSError:
         return False
-
-
-def tailscale_status() -> dict:
-    """Best-effort `tailscale status --json`. Returns {} on any failure."""
-    try:
-        proc = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if proc.returncode != 0:
-            return {}
-        import json
-
-        return json.loads(proc.stdout)
-    except Exception:
-        return {}
