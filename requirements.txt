@@ -1,12 +1,14 @@
 # Jade Helper v1 — volunteer client requirements (Python 3.11)
-requests
-psutil
-Pillow
-diffusers
-accelerate
-safetensors
-huggingface_hub
+# Pinned to the exact versions the v0.1.0 release build was verified
+# against (CI run 38158681819, 2026-10-11); dependabot proposes bumps.
+requests==2.34.2
+psutil==7.2.2
+Pillow==12.3.0
+diffusers==0.41.0
+accelerate==1.15.0
+safetensors==0.8.0
+huggingface_hub==1.33.0
 # torch: install the CUDA build matching the volunteer's GPU, or the CPU build.
 #   CUDA (NVIDIA):  pip install torch --index-url https://download.pytorch.org/whl/cu121
 #   CPU only:       pip install torch --index-url https://download.pytorch.org/whl/cpu
-torch
+torch==2.14.1
