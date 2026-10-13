@@ -37,6 +37,10 @@ from helper.registration import (
     register,
 )
 
+# While a render runs, the worker keeps sending busy heartbeats on this
+# cadence so the hub doesn't mistake a long job for a dead helper.
+RENDER_HEARTBEAT_SECS = 30
+
 
 class HelperWorker:
     def __init__(
@@ -215,36 +219,19 @@ class HelperWorker:
             if paused_now:
                 self.on_status("paused")
             elif not self._busy and self._system_idle():
-                self._fetch_and_run(identity)
+                try:
+                    self._fetch_and_run(identity)
+                except Exception as e:
+                    # JH3: job handling must never kill the worker loop —
+                    # surface the failure and let the next cycle try again.
+                    self.on_status(f"job handling failed: {e}")
 
             self._stop_event.wait(poll_secs)
 
-    def _fetch_and_run(self, identity: dict):
-        try:
-            fetch_resp = self._post(
-                identity, JOB_FETCH_PATH, {"protocol_v": PROTOCOL_V, "body_id": identity["body_id"]}
-            )
-        except Exception as e:
-            self.on_status(f"job fetch failed: {e}")
-            return
-        if fetch_resp is None:
-            return
-        job = fetch_resp.get("job")
-        if not job:
-            self.on_status("idle")
-            return
-
-        job_id = job.get("job_id", "")
-        if job.get("type") != "media.render":
-            self._report(identity, job_id, ok=False, image_b64=None, seconds=0.0,
-                         error=f"unsupported job type: {job.get('type')}")
-            return
-
-        self._busy = True
-        self.on_status("working")
-        # Tell the hub we're busy right away so a long render doesn't make
-        # us look dead before the next scheduled heartbeat. Best-effort: a
-        # failed POST must not cancel the render.
+    def _send_busy_heartbeat(self, identity: dict):
+        """Best-effort busy heartbeat: tells the hub a render is running
+        so a long job doesn't make this helper look dead. A failed POST
+        must never cancel a render, so errors only set the status."""
         try:
             self._post(
                 identity,
@@ -256,14 +243,92 @@ class HelperWorker:
                     "mem_pct": float(psutil.virtual_memory().percent),
                     "gpu_free_vram_gb": self._free_vram_gb(),
                     "busy": True,
-                    "paused": False,
+                    "paused": bool(self.paused),
                 },
             )
         except Exception as e:
             self.on_status(f"busy heartbeat failed: {e}")
+
+    def _fetch_and_run(self, identity: dict):
+        try:
+            fetch_resp = self._post(
+                identity, JOB_FETCH_PATH, {"protocol_v": PROTOCOL_V, "body_id": identity["body_id"]}
+            )
+        except Exception as e:
+            self.on_status(f"job fetch failed: {e}")
+            return
+        if fetch_resp is None:
+            return
+        # JH3: malformed hub payloads must never kill the worker thread —
+        # before this guard, a non-dict response or job raised
+        # AttributeError here, outside any try, and the daemon worker
+        # thread died silently (GUI stuck on the last status forever).
+        if not isinstance(fetch_resp, dict):
+            self.on_status("job fetch failed: malformed hub response")
+            return
+        job = fetch_resp.get("job")
+        if not job:
+            self.on_status("idle")
+            return
+        if not isinstance(job, dict):
+            self.on_status("job fetch failed: malformed job payload")
+            return
+
+        job_id = job.get("job_id", "")
+        if job.get("type") != "media.render":
+            self._report(identity, job_id, ok=False, image_b64=None, seconds=0.0,
+                         error=f"unsupported job type: {job.get('type')}")
+            return
+
+        params = job.get("params")
+        if not isinstance(params, dict):
+            params = {}
+
+        self._busy = True
+        self.on_status("working")
+        # Tell the hub we're busy right away so a long render doesn't make
+        # us look dead before the next scheduled heartbeat.
+        self._send_busy_heartbeat(identity)
         start = time.time()
         try:
-            png = render(job.get("params") or {})
+            outcome: dict = {}
+
+            def _render_target():
+                try:
+                    outcome["png"] = render(params)
+                except Exception as e:  # reported below, scrubbed as before
+                    outcome["error"] = e
+
+            # JH3: render on a daemon thread and keep heartbeating while
+            # it runs. Renders (CPU especially) can far outlast the 30s
+            # poll; without this the hub sees a silent helper and may
+            # requeue the job. Model-consent waits happen inside render,
+            # so they are covered by these heartbeats too.
+            render_thread = threading.Thread(
+                target=_render_target, daemon=True, name="helper-render"
+            )
+            render_thread.start()
+            slice_secs = max(0.05, min(1.0, RENDER_HEARTBEAT_SECS))
+            last_hb = time.monotonic()
+            while render_thread.is_alive():
+                render_thread.join(timeout=slice_secs)
+                if self._stop_event.is_set():
+                    break
+                if (
+                    render_thread.is_alive()
+                    and time.monotonic() - last_hb >= RENDER_HEARTBEAT_SECS
+                ):
+                    last_hb = time.monotonic()
+                    self._send_busy_heartbeat(identity)
+            if render_thread.is_alive():
+                # Stop requested mid-render: don't block shutdown on the
+                # GPU. The daemon thread finishes on its own and its
+                # result is dropped — the hub times the job out, the same
+                # net effect as the app being closed mid-render.
+                return
+            if "error" in outcome:
+                raise outcome["error"]
+            png = outcome["png"]
             elapsed = time.time() - start
             self._report(identity, job_id, ok=True,
                          image_b64=base64.b64encode(png).decode("ascii"),
