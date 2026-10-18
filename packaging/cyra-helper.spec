@@ -1,10 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller ONE-DIR spec for JadeHelper.
+"""PyInstaller ONE-DIR spec for CyraHelper.
 
 Why one-dir: torch/diffusers ship large native DLLs (CUDA runtimes etc.).
 One-dir keeps them as real files the loader can find, instead of unpacking
 a one-file bundle into a temp dir on every launch. The debug twin
-(JadeHelper-debug, console=True) ships alongside for crash logging.
+(CyraHelper-debug, console=True) ships alongside for crash logging.
 """
 
 from pathlib import Path
@@ -60,7 +60,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="JadeHelper",
+    name="CyraHelper",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -78,7 +78,7 @@ debug_exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="JadeHelper-debug",
+    name="CyraHelper-debug",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -99,5 +99,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="JadeHelper",
+    name="CyraHelper",
 )

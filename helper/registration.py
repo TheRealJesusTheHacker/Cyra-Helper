@@ -1,6 +1,6 @@
-"""Identity + registration for a Jade Helper volunteer node.
+"""Identity + registration for a Cyra Helper volunteer node.
 
-Identity lives at %APPDATA%/JadeHelper/helper.json:
+Identity lives at %APPDATA%/CyraHelper/helper.json:
     {"body_id": "helper-<12 hex>", "token": "<urlsafe>", "hub_base": "...", "name": "..."}
 
 The file is written with best-effort 0600 permissions (os.chmod is a
@@ -34,7 +34,7 @@ class BlockedError(Exception):
 
 def app_dir() -> Path:
     base = os.environ.get("APPDATA") or str(Path.home())
-    d = Path(base) / "JadeHelper"
+    d = Path(base) / "CyraHelper"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -144,7 +144,7 @@ def register(hub_base: str, name: str, capabilities: dict) -> dict:
 
     Raises:
         ProtocolMismatchError: hub returned 400 — the hub's message is
-            passed through so the volunteer sees "update your Jade Helper".
+            passed through so the volunteer sees "update your Cyra Helper".
         BlockedError: hub returned 403 — this body_id is blocklisted.
         ValueError: name is empty or longer than 64 chars.
     """

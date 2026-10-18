@@ -1,4 +1,4 @@
-"""Test bootstrap for Jade Helper.
+"""Test bootstrap for Cyra Helper.
 
 Puts the repo root on sys.path so ``import helper...`` works from a bare
 ``pytest`` run, and installs a minimal psutil stub when the real package

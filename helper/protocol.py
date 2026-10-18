@@ -17,7 +17,7 @@ POST /helper/v1/register
          "capabilities": {"cpu_count": int, "ram_gb": float,
                           "gpu_name": str, "vram_gb": float, "cuda": bool}}
     200: {"ok": true, "token": "<urlsafe>", "hub_id": str, "poll_secs": 30}
-    400: {"ok": false, "error": "protocol mismatch: hub speaks v1 — update your Jade Helper"}
+    400: {"ok": false, "error": "protocol mismatch: hub speaks v1 — update your Cyra Helper"}
     403: {"ok": false, "error": "blocked"}
 
 POST /helper/v1/heartbeat
@@ -49,7 +49,7 @@ Design notes
 * Open registration: the hub auto-provisions any helper that registers;
   there is no approval gate. The hub keeps a blocklist/revoke keyed by
   body_id for misbehaving helpers.
-* The helper never receives J.A.D.E.'s memory, conversations, tools, or
+* The helper never receives Cyra's memory, conversations, tools, or
   files — only render prompts and coarse resource stats.
 * Clamps are mirrored on both sides: width/height 64..2048, steps 1..150.
 """

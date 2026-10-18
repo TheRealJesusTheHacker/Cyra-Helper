@@ -1,7 +1,7 @@
-"""Jade Helper v1 — volunteer compute client for J.A.D.E.
+"""Cyra Helper v1 — volunteer compute client for Cyra
 
-Your PC donates idle GPU/CPU to J.A.D.E.'s batch media-render queue.
-Your machine never sees J.A.D.E.'s memory, conversations, tools, or files —
+Your PC donates idle GPU/CPU to Cyra's batch media-render queue.
+Your machine never sees Cyra's memory, conversations, tools, or files —
 only render prompts and coarse resource stats.
 """
 

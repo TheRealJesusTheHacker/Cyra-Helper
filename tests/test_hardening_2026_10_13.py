@@ -147,7 +147,7 @@ def test_consent_approval_is_remembered(monkeypatch, tmp_path):
 # --------------------------------------------------------------- registration
 def _write_identity(tmp_path, monkeypatch, data):
     monkeypatch.setenv("APPDATA", str(tmp_path))
-    p = tmp_path / "JadeHelper" / "helper.json"
+    p = tmp_path / "CyraHelper" / "helper.json"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data), encoding="utf-8")
     return p
@@ -217,7 +217,7 @@ def test_register_200_without_token_raises_clear_error(monkeypatch, tmp_path):
 def test_save_identity_is_atomic_no_tmp_left(monkeypatch, tmp_path):
     monkeypatch.setenv("APPDATA", str(tmp_path))
     registration.save_identity(IDENTITY)
-    files = sorted(p.name for p in (tmp_path / "JadeHelper").iterdir())
+    files = sorted(p.name for p in (tmp_path / "CyraHelper").iterdir())
     assert files == ["helper.json"]
     assert registration.load_identity()["token"] == "test-token"
 

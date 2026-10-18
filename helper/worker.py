@@ -55,7 +55,7 @@ class HelperWorker:
         stored identity rules. on_status(str) and on_stats(dict) callbacks
         feed the GUI (or console) with state changes."""
         self.hub_base = (hub_base or "").rstrip("/")
-        self.name = name or "Jade Helper"
+        self.name = name or "Cyra Helper"
         self.idle_cpu_threshold = idle_cpu_threshold
         self.on_status = on_status or (lambda _s: None)
         self.on_stats = on_stats or (lambda _d: None)

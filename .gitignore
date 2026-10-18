@@ -10,7 +10,7 @@ dist/
 .eggs/
 
 # PyInstaller generates a .spec beside the script when run ad hoc;
-# packaging/jade-helper.spec is source and stays tracked.
+# packaging/cyra-helper.spec is source and stays tracked.
 *.spec
 !packaging/*.spec
 

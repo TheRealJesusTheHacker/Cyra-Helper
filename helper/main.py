@@ -1,9 +1,9 @@
-"""Jade Helper entry point.
+"""Cyra Helper entry point.
 
 Normal launch: first-run setup wizard in the GUI (hub address + Tailscale
 auth key) if this PC isn't registered yet, otherwise the main window.
 
-    JadeHelper.exe [--console] [--config <path>]
+    CyraHelper.exe [--console] [--config <path>]
 
 --console   Headless worker, no GUI. Requires a stored identity (pair the
             PC in the GUI first) unless --config supplies hub + name.
@@ -117,8 +117,8 @@ def _run_console(hub_base: str, name: str, idle_cpu: float,
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(prog="JadeHelper",
-                                     description="Volunteer compute client for J.A.D.E.")
+    parser = argparse.ArgumentParser(prog="CyraHelper",
+                                     description="Volunteer compute client for Cyra")
     parser.add_argument("--console", action="store_true",
                         help="headless worker, no GUI")
     parser.add_argument("--config", metavar="PATH",
@@ -148,7 +148,7 @@ def main(argv=None) -> int:
     cfg = _read_config(args.config)
     ident = load_identity()
     hub_base = (ident or {}).get("hub_base") or cfg.get("hub_base", "")
-    name = (ident or {}).get("name") or cfg.get("name", "Jade Helper")
+    name = (ident or {}).get("name") or cfg.get("name", "Cyra Helper")
     if not hub_base:
         print("[helper] No identity yet — run the GUI once to pair, "
               "or pass --config with hub_base.", file=sys.stderr)

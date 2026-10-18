@@ -1,10 +1,10 @@
-# Jade Helper
+# Cyra Helper
 
-**Donate your PC's idle GPU to power J.A.D.E. — a real local AI.**
+**Donate your PC's idle GPU to power Cyra — a real local AI.**
 
 You know Folding@home, where people donate spare compute to simulate proteins? This is the same idea, pointed somewhere new: you're lending your computer's downtime to strengthen a personal AI that one person actually owns and runs. Not a datacenter. Not a corporation. A real AI, running on real hardware, getting stronger because people like you pitched in.
 
-J.A.D.E. renders a lot of images — thumbnails, graphics, visual work. That work piles up in a queue, and a queue is exactly the kind of thing spare GPUs chew through. Your PC does the renders while you're not using it. That's the whole job.
+Cyra renders a lot of images — thumbnails, graphics, visual work. That work piles up in a queue, and a queue is exactly the kind of thing spare GPUs chew through. Your PC does the renders while you're not using it. That's the whole job.
 
 ## Who this is for
 
@@ -20,7 +20,7 @@ No approval. No account. No waiting list. Download, run, done — you're contrib
 
 ## How it works
 
-Jade Helper is a small background worker. It watches your system and only takes work when your PC is actually idle — low CPU, no fullscreen app running. When you come back to your computer, it stops picking up new work. A render that's already in flight runs to completion first — renders aren't preemptible, so expect the GPU to stay busy for a few minutes after you return. You set how aggressive it is, and the Pause button stops new jobs immediately, no questions asked.
+Cyra Helper is a small background worker. It watches your system and only takes work when your PC is actually idle — low CPU, no fullscreen app running. When you come back to your computer, it stops picking up new work. A render that's already in flight runs to completion first — renders aren't preemptible, so expect the GPU to stay busy for a few minutes after you return. You set how aggressive it is, and the Pause button stops new jobs immediately, no questions asked.
 
 It renders images with Stable Diffusion, locally, on your GPU, and sends the finished image back. Then it asks for the next one.
 
@@ -28,20 +28,20 @@ It renders images with Stable Diffusion, locally, on your GPU, and sends the fin
 
 **It sees:** render prompts (like "a neon doberman logo, dark background") and coarse resource stats (CPU %, memory %, free VRAM) so the hub knows you're alive.
 
-**It NEVER sees:** J.A.D.E.'s memory. Her conversations. Her tools. Her files. Your files. None of that ever leaves the hub — the helper only ever receives a prompt and returns an image. That's the whole relationship, by design.
+**It NEVER sees:** Cyra's memory. Her conversations. Her tools. Her files. Your files. None of that ever leaves the hub — the helper only ever receives a prompt and returns an image. That's the whole relationship, by design.
 
 ## Install
 
 1. Install [Tailscale](https://tailscale.com/download) (free) — it's the private network the hub lives on.
-2. Download `JadeHelper-<version>-win64.zip` from the [Releases](../../releases) page and unzip it anywhere.
-3. Run `JadeHelper.exe`. First run asks for three things: the hub address, a helper name, and the Tailscale auth key (I'll give you the key — it just joins your PC to the private network, nothing shady).
+2. Download `CyraHelper-<version>-win64.zip` from the [Releases](../../releases) page and unzip it anywhere.
+3. Run `CyraHelper.exe`. First run asks for three things: the hub address, a helper name, and the Tailscale auth key (I'll give you the key — it just joins your PC to the private network, nothing shady).
 4. Hit **Connect**. It joins the network, checks the hub, registers itself, and starts working when your PC idles.
 
 Windows SmartScreen will warn you the app is unsigned ("Unknown publisher"). Click *More info → Run anyway*. It's my code, built in the open — you can read every line of it right here in this repo.
 
 ## Uninstall
 
-Close the app, delete the folder, and delete `%APPDATA%\JadeHelper`. That's it — no registry junk, no leftovers. Optionally remove the machine from Tailscale in the Tailscale app.
+Close the app, delete the folder, and delete `%APPDATA%\CyraHelper`. That's it — no registry junk, no leftovers. Optionally remove the machine from Tailscale in the Tailscale app.
 
 ## Build from source
 

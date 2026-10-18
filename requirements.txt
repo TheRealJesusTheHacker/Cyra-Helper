@@ -1,4 +1,4 @@
-# Jade Helper v1 — volunteer client requirements (Python 3.11)
+# Cyra Helper v1 — volunteer client requirements (Python 3.11)
 # Pinned to the exact versions the v0.1.0 release build was verified
 # against (CI run 38158681819, 2026-10-11); dependabot proposes bumps.
 requests==2.34.2

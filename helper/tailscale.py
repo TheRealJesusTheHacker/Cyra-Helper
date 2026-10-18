@@ -1,4 +1,4 @@
-"""Tailscale helpers for reaching the J.A.D.E. hub.
+"""Tailscale helpers for reaching the Cyra hub.
 
 The hub is only reachable over Skyler's Tailnet. Volunteers join it with a
 Skyler-generated auth key tagged ``tag:helper``.

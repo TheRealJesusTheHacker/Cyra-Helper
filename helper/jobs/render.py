@@ -9,7 +9,7 @@ Default model: runwayml/stable-diffusion-v1-5
     multi-gig model without the volunteer's say-so: the first job that
     names an unapproved model triggers an approval prompt (GUI dialog in
     the app, y/n in console mode), and approvals are remembered in
-    %APPDATA%/JadeHelper/known_models.json so each model is only asked
+    %APPDATA%/CyraHelper/known_models.json so each model is only asked
     about once. Pre-approve models with --allow-model (console).
 
 Clamps (mirroring the hub): width/height 64..2048, steps 1..150.

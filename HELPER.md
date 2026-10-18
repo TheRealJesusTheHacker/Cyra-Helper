@@ -1,10 +1,10 @@
-# Jade Helper — Volunteer Guide
+# Cyra Helper — Volunteer Guide
 
 Everything you need to run a helper node, start to finish. If anything here doesn't work, open an issue on this repo and I'll fix it.
 
 ## 1. What you're running
 
-A small background worker that renders images for J.A.D.E. when your PC is idle. It talks to the hub over a private Tailscale network. It only ever receives a render prompt and sends back a finished image — never J.A.D.E.'s memory, conversations, tools, or files, and never your files.
+A small background worker that renders images for Cyra when your PC is idle. It talks to the hub over a private Tailscale network. It only ever receives a render prompt and sends back a finished image — never Cyra's memory, conversations, tools, or files, and never your files.
 
 ## 2. Install Tailscale
 
@@ -38,14 +38,14 @@ Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-
 
 - **NVIDIA GPU:** install the CUDA build of torch for full speed:
   `pip install torch --index-url https://download.pytorch.org/whl/cu121`
-  (The prebuilt `JadeHelper.exe` already ships with CUDA torch.)
+  (The prebuilt `CyraHelper.exe` already ships with CUDA torch.)
 - **No NVIDIA GPU:** it still works on CPU — just much slower. The worker will only pick up jobs your machine can actually finish; CPU-only machines are welcome but expect long render times.
 - The first render is slow (model load). After that the model stays in memory and jobs go faster.
 
 ## 6. Resource controls
 
 - **Idle detection:** the worker only fetches jobs when your CPU is under the idle threshold (default 40%) and no fullscreen app is running (so it never steals your game).
-- **Tune it:** console mode takes `--idle-cpu <percent>` — lower means pickier. Example: `JadeHelper.exe --console --idle-cpu 25`.
+- **Tune it:** console mode takes `--idle-cpu <percent>` — lower means pickier. Example: `CyraHelper.exe --console --idle-cpu 25`.
 - **New models:** the hub can ask for a model you don't have yet. The app always asks before downloading anything multi-GB (a yes/no dialog in the GUI, a prompt in console mode) and remembers each answer — every model is only asked about once. Console mode can pre-approve with `--allow-model owner/repo` (repeatable).
 - **Pause:** the Pause button (or Ctrl+C in console mode) stops new jobs immediately. The current render finishes first so nothing is lost; the hub just won't send more.
 - **Stats:** the main window shows jobs completed, images rendered, and hours contributed.
@@ -55,13 +55,13 @@ Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-
 If you'd rather run it with no window (e.g. on a spare rig):
 
 ```bat
-JadeHelper.exe --console
+CyraHelper.exe --console
 ```
 
 First run still needs the GUI once to pair. Or pair unattended with a config file:
 
 ```bat
-JadeHelper.exe --console --config helper-config.json
+CyraHelper.exe --console --config helper-config.json
 ```
 
 `helper-config.json`:
@@ -72,7 +72,7 @@ JadeHelper.exe --console --config helper-config.json
 }
 ```
 
-A `--console` debug twin, `JadeHelper-debug.exe`, ships next to the main exe and prints everything to a terminal — use it if something's acting up.
+A `--console` debug twin, `CyraHelper-debug.exe`, ships next to the main exe and prints everything to a terminal — use it if something's acting up.
 
 ## 8. Troubleshooting
 
@@ -80,17 +80,17 @@ A `--console` debug twin, `JadeHelper-debug.exe`, ships next to the main exe and
 |---|---|
 | "tailscale not found" | Install Tailscale (step 2), then restart the app. |
 | "Hub not reachable" | Check the hub address. Make sure Tailscale shows as connected (look for the Tailscale icon in the system tray). |
-| "protocol mismatch … update your Jade Helper" | Your helper is out of date — grab the newest release. The hub and helper must speak the same protocol version. Verify the download first: each release ships a `SHA256SUMS-win64` file next to the zip — run `Get-FileHash <the-zip> -Algorithm SHA256` in PowerShell and check the hash matches before unzipping. |
+| "protocol mismatch … update your Cyra Helper" | Your helper is out of date — grab the newest release. The hub and helper must speak the same protocol version. Verify the download first: each release ships a `SHA256SUMS-win64` file next to the zip — run `Get-FileHash <the-zip> -Algorithm SHA256` in PowerShell and check the hash matches before unzipping. |
 | "blocked" | This machine's ID was blocklisted by the hub. If you think that's wrong, contact me. |
 | "bad token — re-pair in the app" | The stored token stopped working. Unpair and run setup again. |
 | Renders fail / out of memory | Your GPU ran out of VRAM. The worker reports the failure honestly and moves on — nothing breaks. A card with more VRAM helps. |
-| App won't start at all | Run `JadeHelper-debug.exe` from a terminal and send me what it prints. |
+| App won't start at all | Run `CyraHelper-debug.exe` from a terminal and send me what it prints. |
 
 ## 9. Full uninstall
 
 1. Close the app (right-click → close, or Ctrl+C in console mode).
 2. Delete the app folder wherever you unzipped it.
-3. Delete `%APPDATA%\JadeHelper` — that's your identity and token.
+3. Delete `%APPDATA%\CyraHelper` — that's your identity and token.
 4. Optional: in the Tailscale app, remove the machine; optionally uninstall Tailscale.
 
 No registry entries, no services, no leftovers.

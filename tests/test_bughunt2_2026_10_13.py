@@ -49,7 +49,7 @@ IDENTITY = {
 # --------------------------------------------------------------- registration
 def _write_identity(tmp_path, monkeypatch, data):
     monkeypatch.setenv("APPDATA", str(tmp_path))
-    p = tmp_path / "JadeHelper" / "helper.json"
+    p = tmp_path / "CyraHelper" / "helper.json"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data), encoding="utf-8")
     return p

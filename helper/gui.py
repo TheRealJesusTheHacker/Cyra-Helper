@@ -47,7 +47,7 @@ class _Base(tk.Tk):
         self.configure(bg=BG)
         self.geometry("400x560")
         self.resizable(False, False)
-        self.title("Jade Helper")
+        self.title("Cyra Helper")
         self._style_widgets()
         self.protocol("WM_DELETE_WINDOW", self._close)
 
@@ -111,17 +111,17 @@ class SetupWizard(_Base):
 
     def __init__(self):
         super().__init__()
-        self.title("Jade Helper — setup")
-        self.label(self, "JADE HELPER", font=("Segoe UI", 18, "bold"), fg=ACCENT,
+        self.title("Cyra Helper — setup")
+        self.label(self, "CYRA HELPER", font=("Segoe UI", 18, "bold"), fg=ACCENT,
                    pack_kw={"pady": (28, 4)})
-        self.label(self, "Donate your idle GPU to J.A.D.E.", fg=DIM, pack_kw={"pady": (0, 18)})
+        self.label(self, "Donate your idle GPU to Cyra", fg=DIM, pack_kw={"pady": (0, 18)})
 
         self.label(self, "Hub address", fg=DIM, pack_kw={"pady": (6, 0)})
         self.hub_var = tk.StringVar(value="http://")
         self._entry(self.hub_var)
 
         self.label(self, "Helper name", fg=DIM, pack_kw={"pady": (6, 0)})
-        self.name_var = tk.StringVar(value="Jade Helper")
+        self.name_var = tk.StringVar(value="Cyra Helper")
         self._entry(self.name_var)
 
         self.label(self, "Tailscale auth key (from Skyler)", fg=DIM, pack_kw={"pady": (6, 0)})
@@ -201,9 +201,9 @@ class MainWindow(_Base):
 
     def __init__(self):
         super().__init__()
-        self.title("Jade Helper")
+        self.title("Cyra Helper")
 
-        self.label(self, "JADE HELPER", font=("Segoe UI", 18, "bold"), fg=ACCENT,
+        self.label(self, "CYRA HELPER", font=("Segoe UI", 18, "bold"), fg=ACCENT,
                    pack_kw={"pady": (24, 2)})
         self.name_label = self.label(self, "", fg=DIM, pack_kw={"pady": (0, 12)})
 
@@ -221,7 +221,7 @@ class MainWindow(_Base):
         self.ghost_button(self, "Unpair this PC", self._unpair)
 
         self.label(self, "Runs in the background on spare resources only.\n"
-                         "Pause any time. Never touches J.A.D.E.'s memory\n"
+                         "Pause any time. Never touches Cyra's memory\n"
                          "or conversations — render prompts only.", fg=DIM,
                    font=("Segoe UI", 8), pack_kw={"pady": (10, 0)})
 
