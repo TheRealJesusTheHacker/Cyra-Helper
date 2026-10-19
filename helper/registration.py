@@ -71,6 +71,14 @@ def load_identity() -> dict | None:
     # instead of ever offering re-pairing. register() always writes one.
     if not isinstance(data.get("hub_base"), str) or not data["hub_base"]:
         return None
+    # Same wedge, one step later: a hub_base requests can't speak
+    # (a hand-edited scheme, a bare "hub:9999", …) makes every POST
+    # raise InvalidSchema/MissingSchema, and the worker spins on
+    # "heartbeat failed" forever instead of offering re-pairing. The
+    # hub is HTTP(S) by contract — register()/the wizard only ever
+    # write http:// or https:// — so anything else is corrupt.
+    if not data["hub_base"].startswith(("http://", "https://")):
+        return None
     return data
 
 
@@ -178,7 +186,13 @@ def register(hub_base: str, name: str, capabilities: dict) -> dict:
     # JH3: a 200 without a token is a broken hub response — fail with a
     # clear message, not a bare KeyError.
     token = data.get("token") if isinstance(data, dict) else None
-    if not token:
+    if not isinstance(token, str) or not token:
+        # A non-string token (123, {...}) is just as broken: save_identity
+        # would persist it, load_identity would reject it on the next
+        # launch, and in this session _headers()'s "Bearer " + token
+        # would TypeError on every POST — the wedge load_identity's own
+        # token-type check guards against, arriving via the hub instead
+        # of a corrupt file. Fail at registration, where it happened.
         raise RuntimeError("hub registration response did not include a token")
     identity = {
         "body_id": body_id,
