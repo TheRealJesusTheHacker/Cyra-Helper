@@ -69,4 +69,8 @@ BODY_ID_RE = re.compile(r"^helper-[0-9a-f]{12}$")
 
 def valid_body_id(bid: object) -> bool:
     """Return True iff ``bid`` matches ``^helper-[0-9a-f]{12}$``."""
-    return isinstance(bid, str) and bool(BODY_ID_RE.match(bid))
+    # fullmatch, not match: "$" also matches just before a trailing
+    # newline, so match() accepted "helper-<12 hex>\n" — a stored id
+    # with a stray newline passed validation but could never match the
+    # hub's id for this helper.
+    return isinstance(bid, str) and bool(BODY_ID_RE.fullmatch(bid))
