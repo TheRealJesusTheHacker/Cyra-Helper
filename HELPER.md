@@ -32,6 +32,12 @@ There's no approval step and no account to make. When you hit **Connect**:
 
 From then on, launching the app goes straight to the main window. Pairing happens once.
 
+Your pairing is stored at `%APPDATA%\CyraHelper\helper.json`. It holds your helper ID (`helper-` plus 12 hex characters), the worker token the hub issued, the hub address, and the helper name you chose. Three things are worth knowing about it:
+
+- **The token is never printed or logged.** The app only ever sends it to the hub, in an `Authorization: Bearer` header.
+- **The file is checked every time the app starts.** If it has been corrupted or hand-edited into a shape the app can't use — a token that isn't a plain urlsafe string, a hub address that isn't a valid `http://` or `https://` URL — the app treats the PC as unpaired and offers setup again, instead of failing silently forever.
+- **Saving is crash-safe.** The app writes a temporary file first and then replaces the real one, so a crash or power cut mid-save can't leave a half-written pairing behind. **Unpair** (in the main window) deletes the pairing file and any leftover temporary copy, stops the worker, and returns you to setup.
+
 ## 5. GPU notes
 
 Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-v1-5`, ~4GB one-time download — the app asks before downloading anything that big).
@@ -41,6 +47,8 @@ Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-
   (The prebuilt `CyraHelper.exe` already ships with CUDA torch.)
 - **No NVIDIA GPU:** it still works on CPU — just much slower. The worker will only pick up jobs your machine can actually finish; CPU-only machines are welcome but expect long render times.
 - The first render is slow (model load). After that the model stays in memory and jobs go faster.
+- Render sizes are clamped by the helper and the hub alike: width and height 64–2048 (rounded down to a multiple of 8), steps 1–150.
+- **Model safety:** a model the hub asks for must be a plain Hugging Face `owner/repo` ID — the app rejects local paths and anything that isn't that shape. Models load from safetensors weights only, and model-repository code is never executed (`trust_remote_code` is off). Approvals you give are remembered in `%APPDATA%\CyraHelper\known_models.json`, so you're only asked once per model.
 
 ## 6. Resource controls
 
@@ -71,6 +79,10 @@ CyraHelper.exe --console --config helper-config.json
   "name": "My Helper"
 }
 ```
+
+The config file must be a JSON object, and `hub_base` / `name` must be strings — a bad config is rejected with a message instead of crashing later. `--idle-cpu` must be between 0 and 100; out-of-range values are rejected at startup.
+
+If the hub gives a terminal answer — `blocked`, a protocol mismatch, or a bad token — console mode exits instead of hanging, so a script or a spare rig doesn't sit there doing nothing. With no terminal attached, an unknown model download is refused outright: pre-approve it with `--allow-model owner/repo` (repeatable).
 
 A `--console` debug twin, `CyraHelper-debug.exe`, ships next to the main exe and prints everything to a terminal — use it if something's acting up.
 
