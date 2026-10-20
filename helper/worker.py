@@ -90,6 +90,11 @@ class HelperWorker:
     def start(self):
         if self._thread and self._thread.is_alive():
             return
+        # A previous stop() (or a terminal 400/401/403 inside _post) sets
+        # the stop event permanently; without clearing it here a second
+        # start() spawned a thread that registered, then exited at the
+        # loop condition without ever heartbeating — a silent no-op.
+        self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True, name="helper-worker")
         self._thread.start()
 
@@ -184,6 +189,12 @@ class HelperWorker:
         if resp.status_code == 400:
             try:
                 err = resp.json().get("error", "protocol mismatch")
+                # Same guard as registration._hub_error: only a string
+                # is a hub message, and it is capped before it reaches
+                # the volunteer's status line / console.
+                if not isinstance(err, str):
+                    err = "protocol mismatch"
+                err = err[:500]
             except Exception:
                 err = "protocol mismatch"
             self.on_status(f"protocol mismatch: {err}")
