@@ -47,7 +47,8 @@ def _read_config(path: str | None) -> dict:
 
 
 def _run_console(hub_base: str, name: str, idle_cpu: float,
-                 allow_models: list | None = None) -> int:
+                 allow_models: list | None = None,
+                 audit_log: bool = False) -> int:
     # importlib, not "import helper.jobs.render as …": the package's
     # __init__ re-exports the render *function* under the same attribute
     # name, which would shadow the module.
@@ -69,6 +70,11 @@ def _run_console(hub_base: str, name: str, idle_cpu: float,
     # JH2-3: pre-approve models named on the command line.
     render_mod.allowed_models |= {m.strip() for m in (allow_models or [])
                                  if m and m.strip()}
+
+    # JH2-11: --audit-log opts this console run in to the local audit
+    # log of rendered prompts (default OFF; see render.py).
+    if audit_log:
+        render_mod.audit_log_opt_in = True
 
     def _console_consent(model: str) -> bool:
         """Ask the volunteer (interactive TTY) before the first download
@@ -129,6 +135,11 @@ def main(argv=None) -> int:
                         metavar="MODEL",
                         help="pre-approve a Hugging Face model id (owner/repo) "
                              "for download, no prompt asked; repeatable")
+    parser.add_argument("--audit-log", action="store_true",
+                        help="keep a local log of rendered prompts "
+                             "(job id, model, time, prompt) in the app data "
+                             "folder; off by default; the log never leaves "
+                             "this PC")
     args = parser.parse_args(argv)
 
     # BH2: --idle-cpu is a percentage threshold, and out-of-range values
@@ -153,7 +164,8 @@ def main(argv=None) -> int:
         print("[helper] No identity yet — run the GUI once to pair, "
               "or pass --config with hub_base.", file=sys.stderr)
         return 2
-    return _run_console(hub_base, name, args.idle_cpu, args.allow_model)
+    return _run_console(hub_base, name, args.idle_cpu, args.allow_model,
+                        audit_log=args.audit_log)
 
 
 if __name__ == "__main__":

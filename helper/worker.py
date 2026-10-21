@@ -22,7 +22,7 @@ from pathlib import Path
 import psutil
 import requests
 
-from helper.jobs.render import render
+from helper.jobs.render import record_render_audit, render
 from helper.protocol import (
     HEARTBEAT_PATH,
     JOB_FETCH_PATH,
@@ -299,6 +299,13 @@ class HelperWorker:
         params = job.get("params")
         if not isinstance(params, dict):
             params = {}
+
+        # JH2-11: opt-in local audit log (default OFF — inside
+        # record_render_audit, the disabled path writes nothing). The
+        # entry is recorded here, where the job id is known, for every
+        # job this helper commits to rendering; the log file is local
+        # to the volunteer's machine and is never posted to the hub.
+        record_render_audit(job_id, params)
 
         self._busy = True
         self.on_status("working")

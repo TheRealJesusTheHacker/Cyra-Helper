@@ -12,6 +12,16 @@ Default model: runwayml/stable-diffusion-v1-5
     %APPDATA%/CyraHelper/known_models.json so each model is only asked
     about once. Pre-approve models with --allow-model (console).
 
+Audit log (JH2-11, opt-in, default OFF): a compromised hub could make
+volunteers render arbitrary content with zero local trace. When the
+volunteer enables it (the CYRA_HELPER_AUDIT_LOG environment variable,
+or --audit-log in console mode), every job the helper attempts to
+render is appended to a LOCAL log — job id / model / timestamp /
+prompt — at %APPDATA%/CyraHelper/audit_log.jsonl. The log is never
+sent anywhere by this feature; it exists so the volunteer can see
+what their machine was asked to render. With the setting off (the
+default), nothing is written and behaviour is unchanged.
+
 Clamps (mirroring the hub): width/height 64..2048, steps 1..150.
 Errors are honest: no usable GPU/device raises with a plain message.
 """
@@ -21,6 +31,7 @@ import json
 import os
 import re
 import threading
+from datetime import datetime, timezone
 
 DEFAULT_MODEL = "runwayml/stable-diffusion-v1-5"
 
@@ -40,6 +51,16 @@ allowed_models: set = {DEFAULT_MODEL}
 # pre-approved nor in the persisted known-models file. gui.py sets this
 # to a thread-safe GUI dialog; main.py sets it to a console prompt.
 consent_callback = None
+
+# JH2-11: opt-in local audit log of rendered prompts. OFF by default —
+# audit_log_opt_in is set by the host only when the volunteer turns the
+# log on (--audit-log in console mode); the CYRA_HELPER_AUDIT_LOG
+# environment variable is the other switch, so GUI launches can opt in
+# too. record_render_audit() checks audit_log_enabled() before it
+# touches any path or file, so with the setting off no code path in
+# this feature writes anything.
+AUDIT_LOG_ENV = "CYRA_HELPER_AUDIT_LOG"
+audit_log_opt_in = False
 
 _MIN_DIM, _MAX_DIM = 64, 2048
 _MIN_STEPS, _MAX_STEPS = 1, 150
@@ -105,6 +126,65 @@ def _model_approved(model: str) -> bool:
         known.add(model)
         _save_known_models(known)
     return ok
+
+
+# ------------------------------------------------------------- audit log
+def audit_log_enabled() -> bool:
+    """True only when the volunteer has opted in to the audit log.
+
+    Opt-in is the host-set ``audit_log_opt_in`` flag (--audit-log in
+    console mode) or the CYRA_HELPER_AUDIT_LOG environment variable
+    set to a truthy value (1 / true / yes / on). Anything else —
+    including the variable being unset — is OFF.
+    """
+    if audit_log_opt_in:
+        return True
+    return os.environ.get(AUDIT_LOG_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _audit_log_path():
+    from helper.registration import app_dir
+
+    return app_dir() / "audit_log.jsonl"
+
+
+def record_render_audit(job_id: str, params: dict) -> None:
+    """Append one entry for a job the helper is about to render.
+
+    JH2-11, opt-in and default OFF: when the volunteer has not enabled
+    the log this returns before resolving any path or touching the
+    filesystem — byte-for-byte the pre-feature behaviour. When enabled,
+    one JSON line with job_id / model / timestamp / prompt is appended
+    to the local log (%APPDATA%/CyraHelper/audit_log.jsonl). The entry
+    is written locally only; nothing in this feature transmits it
+    anywhere. A failed write never fails the job (the same best-effort
+    posture as _save_known_models).
+    """
+    if not audit_log_enabled():
+        return
+    prompt = params.get("prompt")
+    if not isinstance(prompt, str):
+        prompt = ""
+    model = params.get("model")
+    if model is not None and not isinstance(model, str):
+        model = ""
+    model = (model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    entry = {
+        "job_id": str(job_id),
+        "model": model,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "prompt": prompt,
+    }
+    try:
+        with open(_audit_log_path(), "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 
 
 def _clamp(value, lo, hi):
