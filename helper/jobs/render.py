@@ -210,12 +210,31 @@ def render(params: dict) -> bytes:
     generator = None
     seed = params.get("seed")
     if seed is not None:
+        # S3: a seed is a reproducibility contract — the hub asks for a
+        # specific seeded render. The old blanket except silently
+        # dropped EVERY unusable seed (a non-numeric string, a bool, an
+        # out-of-range value torch rejects) and rendered UNSEEDED,
+        # then reported success: the hub got a different image than it
+        # asked for with no signal. Fail the job honestly instead, the
+        # same way a non-string prompt fails above. Shapes that always
+        # worked keep working (ints, integral floats, digit strings —
+        # int() accepted all of them before).
+        if isinstance(seed, bool):
+            raise ValueError("job params seed must be an integer")
         try:
-            import torch
+            seed_int = int(seed)
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError(
+                f"job params seed must be an integer: {seed!r}") from None
+        if isinstance(seed, float) and seed != seed_int:
+            raise ValueError(
+                f"job params seed must be an integer: {seed!r}")
+        import torch
 
-            generator = torch.Generator(device=_device()).manual_seed(int(seed))
-        except Exception:
-            generator = None
+        # A torch-side rejection (e.g. seed out of range) propagates
+        # as the job's error — honest failure, never a silent unseeded
+        # render reported as success.
+        generator = torch.Generator(device=_device()).manual_seed(seed_int)
 
     image = pipe(
         prompt=prompt,
