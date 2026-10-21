@@ -246,10 +246,14 @@ class MainWindow(_Base):
         )
         self.worker.start()
 
-    def _ask_model_consent(self, model: str) -> bool:
+    def _ask_model_consent(self, model: str, size_bytes=None) -> bool:
         """Called on the worker thread when a job names an unapproved
         model. Marshals the question onto the GUI thread and waits for
-        the volunteer's answer (up to 5 minutes, then refuse)."""
+        the volunteer's answer (up to 5 minutes, then refuse).
+
+        The dialog text comes from render.consent_message: it states
+        the model's real size from hub metadata, or says the size is
+        unknown when the lookup failed — never a vague figure."""
         answer: dict = {}
         done = threading.Event()
 
@@ -257,8 +261,7 @@ class MainWindow(_Base):
             try:
                 answer["ok"] = messagebox.askyesno(
                     "New model",
-                    f"The hub wants to use a new model:\n\n{model}\n\n"
-                    "The first use downloads several GB. Allow it?",
+                    render_mod.consent_message(model, size_bytes),
                     parent=self,
                 )
             except Exception:

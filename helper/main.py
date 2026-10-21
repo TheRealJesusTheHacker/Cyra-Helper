@@ -76,14 +76,19 @@ def _run_console(hub_base: str, name: str, idle_cpu: float,
     if audit_log:
         render_mod.audit_log_opt_in = True
 
-    def _console_consent(model: str) -> bool:
+    def _console_consent(model: str, size_bytes=None) -> bool:
         """Ask the volunteer (interactive TTY) before the first download
-        of an unknown model; refuse outright when there's nobody to ask."""
+        of an unknown model; refuse outright when there's nobody to ask.
+
+        The prompt text comes from render.consent_message: it states
+        the model's real size from hub metadata, or says the size is
+        unknown when the lookup failed — never a vague figure."""
         if sys.stdin.isatty():
             try:
                 ans = input(
-                    f"[helper] The hub wants to download a new model: {model}\n"
-                    "That's a multi-GB download the first time. Allow it? [y/N] "
+                    "[helper] "
+                    + render_mod.consent_message(model, size_bytes)
+                    + " [y/N] "
                 ).strip().lower()
             except (EOFError, KeyboardInterrupt):
                 return False

@@ -11,6 +11,10 @@ Default model: runwayml/stable-diffusion-v1-5
     the app, y/n in console mode), and approvals are remembered in
     %APPDATA%/CyraHelper/known_models.json so each model is only asked
     about once. Pre-approve models with --allow-model (console).
+    Before the prompt is shown, the model's real download size is
+    looked up from Hugging Face hub metadata and stated in the prompt;
+    if the lookup fails, the prompt says the size is unknown instead of
+    quoting a vague figure as if it were fact.
 
 Audit log (JH2-11, opt-in, default OFF): a compromised hub could make
 volunteers render arbitrary content with zero local trace. When the
@@ -46,10 +50,13 @@ _MODEL_RE = re.compile(r"^[\w.\-]+/[\w.\-]+$")
 # interactively land in the persisted known-models file instead.
 allowed_models: set = {DEFAULT_MODEL}
 
-# Host-provided consent hook: consent_callback(model_id) -> bool. Called
-# from the worker thread when a job names a model that is neither
-# pre-approved nor in the persisted known-models file. gui.py sets this
-# to a thread-safe GUI dialog; main.py sets it to a console prompt.
+# Host-provided consent hook: consent_callback(model_id, size_bytes)
+# -> bool, where size_bytes is the model's real download size from hub
+# metadata (int) or None when the lookup failed. Called from the worker
+# thread when a job names a model that is neither pre-approved nor in
+# the persisted known-models file. gui.py sets this to a thread-safe
+# GUI dialog; main.py sets it to a console prompt. A legacy one-argument
+# hook consent_callback(model_id) is still honoured (see _ask_consent).
 consent_callback = None
 
 # JH2-11: opt-in local audit log of rendered prompts. OFF by default —
@@ -105,6 +112,98 @@ def _save_known_models(models: set) -> None:
         pass
 
 
+def _model_size_bytes(model: str):
+    """The model's real download size in bytes, from hub metadata.
+
+    Sums the file sizes Hugging Face reports for the repo. Returns
+    None when the size cannot be known — the library is missing, the
+    hub cannot be reached, or the metadata carries no usable sizes.
+    The consent prompt treats None as "size unknown"; this function
+    never estimates, guesses, or falls back to a typical figure.
+    """
+    try:
+        from huggingface_hub import HfApi
+
+        info = HfApi().model_info(model, files_metadata=True)
+    except Exception:
+        return None
+    total = 0
+    seen = False
+    for sibling in getattr(info, "siblings", None) or []:
+        size = getattr(sibling, "size", None)
+        if isinstance(size, bool) or not isinstance(size, (int, float)):
+            continue
+        if size < 0:
+            continue
+        total += int(size)
+        seen = True
+    return total if seen else None
+
+
+def format_model_size(size_bytes) -> str:
+    """Plain-language size for the consent prompt.
+
+    None (lookup failed) is stated as unknown — never dressed up as a
+    number. A known size is rounded to one decimal place; the prompt
+    wording around it ("about") carries the approximation openly.
+    """
+    if size_bytes is None:
+        return "size unknown"
+    size = float(size_bytes)
+    if size >= 1_000_000_000:
+        return f"{size / 1_000_000_000:.1f} GB"
+    if size >= 1_000_000:
+        return f"{size / 1_000_000:.0f} MB"
+    if size >= 1_000:
+        return f"{size / 1_000:.0f} KB"
+    return f"{int(size)} bytes"
+
+
+def consent_message(model: str, size_bytes) -> str:
+    """The exact consent wording both hosts (GUI dialog, console
+    prompt) show before a first download of ``model``.
+
+    The size in the text is the figure hub metadata actually returned.
+    When the lookup failed, the text says the size is unknown — a
+    consent prompt must not understate what it asks consent for by
+    quoting a vague "several GB" as if it were the model's size.
+    """
+    if size_bytes is None:
+        return (
+            f"The hub wants to download a new model: {model}\n"
+            "Its size is unknown — the size lookup failed, so the "
+            "download could be large. Allow it?"
+        )
+    return (
+        f"The hub wants to download a new model: {model}\n"
+        f"The download is about {format_model_size(size_bytes)}. Allow it?"
+    )
+
+
+def _ask_consent(model: str) -> bool:
+    """Ask the host's consent hook about ``model``, with its real size.
+
+    The size lookup runs only here — models that are already approved
+    never trigger a metadata request. No hook means no prompt can be
+    shown, so no lookup runs either and the answer is no.
+    """
+    if consent_callback is None:
+        return False
+    size = _model_size_bytes(model)
+    try:
+        return bool(consent_callback(model, size))
+    except TypeError:
+        # A legacy one-argument hook predates the size argument; a
+        # signature mismatch raises TypeError before the hook's body
+        # runs, so retrying with the old shape is safe.
+        try:
+            return bool(consent_callback(model))
+        except Exception:
+            return False
+    except Exception:
+        return False
+
+
 def _model_approved(model: str) -> bool:
     """True if the volunteer already approved ``model``.
 
@@ -116,12 +215,7 @@ def _model_approved(model: str) -> bool:
     known = _load_known_models()
     if model in known or model in allowed_models:
         return True
-    ok = False
-    if consent_callback is not None:
-        try:
-            ok = bool(consent_callback(model))
-        except Exception:
-            ok = False
+    ok = _ask_consent(model)
     if ok:
         known.add(model)
         _save_known_models(known)
