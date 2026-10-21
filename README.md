@@ -3,7 +3,7 @@
 **Donate your Windows PC's idle GPU to power Cyra — a real, personally owned local AI.**
 
 [![Release build](https://github.com/TheRealJesusTheHacker/Cyra-Helper/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/TheRealJesusTheHacker/Cyra-Helper/actions/workflows/release.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](helper/VERSION)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue?style=flat-square)](helper/VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue?style=flat-square)](requirements.txt)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](https://github.com/TheRealJesusTheHacker/Cyra-Helper/releases)
@@ -23,8 +23,8 @@ That is the whole job. The helper receives a render prompt and returns an image.
 
 ### Status
 
-- **Version:** 0.1.0 — the version source is [`helper/VERSION`](helper/VERSION).
-- **Latest release:** `v0.1.0`, published on this repository's [Releases](https://github.com/TheRealJesusTheHacker/Cyra-Helper/releases) page as `CyraHelper-0.1.0-win64.zip` together with a `SHA256SUMS-win64` checksum file.
+- **Version:** 0.1.1 — the version source is [`helper/VERSION`](helper/VERSION).
+- **Latest release:** `v0.1.1`, published on this repository's [Releases](https://github.com/TheRealJesusTheHacker/Cyra-Helper/releases) page as `CyraHelper-0.1.1-win64.zip` together with a `SHA256SUMS-win64` checksum file.
 - **Platform:** Windows. The client is written in Python 3.11 and packaged with PyInstaller as a one-directory bundle.
 - **Protocol:** helper↔hub protocol v1, defined in [`helper/protocol.py`](helper/protocol.py). Helper and hub exchange the protocol version on every request; a mismatch stops the helper and tells the volunteer to update.
 
@@ -274,7 +274,7 @@ python -m pytest
 python -m pytest --collect-only
 ```
 
-Verified against a fresh snapshot of this repository at version 0.1.0: **127 tests collected, and all 127 pass.** The suite covers the protocol contract and heartbeat shape, identity load/save validation (including corrupt tokens, hub URLs, and non-JSON hub responses), the model consent gate and its persistence, the consent prompt's real-size wording (and its "size is unknown" fallback), the opt-in audit log's off-by-default and enabled behaviour, render clamps and model-ID rejection, malformed hub payloads, heartbeats during long renders, stopping mid-render, and worker restart after stop. [`tests/conftest.py`](tests/conftest.py) puts the repository root on `sys.path` and installs a minimal `psutil` stub when the real package is unavailable, so a bare `pytest` run works on a plain development machine.
+Verified against a fresh snapshot of this repository at version 0.1.1: **127 tests collected, and all 127 pass.** The suite covers the protocol contract and heartbeat shape, identity load/save validation (including corrupt tokens, hub URLs, and non-JSON hub responses), the model consent gate and its persistence, the consent prompt's real-size wording (and its "size is unknown" fallback), the opt-in audit log's off-by-default and enabled behaviour, render clamps and model-ID rejection, malformed hub payloads, heartbeats during long renders, stopping mid-render, and worker restart after stop. [`tests/conftest.py`](tests/conftest.py) puts the repository root on `sys.path` and installs a minimal `psutil` stub when the real package is unavailable, so a bare `pytest` run works on a plain development machine.
 
 ## Project history
 
