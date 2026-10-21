@@ -54,7 +54,8 @@ Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-
 
 - **Idle detection:** the worker only fetches jobs when your CPU is under the idle threshold (default 40%) and no fullscreen app is running (so it never steals your game).
 - **Tune it:** console mode takes `--idle-cpu <percent>` — lower means pickier. Example: `CyraHelper.exe --console --idle-cpu 25`.
-- **New models:** the hub can ask for a model you don't have yet. The app always asks before downloading anything multi-GB (a yes/no dialog in the GUI, a prompt in console mode) and remembers each answer — every model is only asked about once. Console mode can pre-approve with `--allow-model owner/repo` (repeatable).
+- **New models:** the hub can ask for a model you don't have yet. The app always asks before downloading (a yes/no dialog in the GUI, a prompt in console mode) and remembers each answer — every model is only asked about once. The prompt states the model's real size, looked up from Hugging Face before you're asked; if that lookup fails, the prompt says the size is unknown rather than guessing. Console mode can pre-approve with `--allow-model owner/repo` (repeatable).
+- **Audit log (optional, off by default):** if you want a record of what your PC has rendered, set the `CYRA_HELPER_AUDIT_LOG` environment variable to `1` before launching (or pass `--audit-log` in console mode). Each rendered job is then written to `%APPDATA%\CyraHelper\audit_log.jsonl` — job ID, model, time, and the prompt — one line per job. The log stays on your PC; it is never sent anywhere. With the setting off, nothing is recorded.
 - **Pause:** the Pause button (or Ctrl+C in console mode) stops new jobs immediately. The current render finishes first so nothing is lost; the hub just won't send more.
 - **Stats:** the main window shows jobs completed, images rendered, and hours contributed.
 

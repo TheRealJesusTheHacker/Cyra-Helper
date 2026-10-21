@@ -40,7 +40,8 @@ Anyone with a Windows PC — especially a gaming GPU sitting idle while its owne
 
 - **Idle-only work.** The worker only fetches a job when CPU use is below the idle threshold (40% by default) and no fullscreen application is running. When you come back to your computer, it stops picking up new work.
 - **Local Stable Diffusion rendering.** Images are rendered on your own GPU (or CPU) with the `runwayml/stable-diffusion-v1-5` model by default. The pipeline loads lazily on the first job and stays in memory for the rest of the session.
-- **Consent before big downloads.** If the hub asks for a model you do not have, the app asks before downloading anything multi-GB and remembers each answer, so every model is only asked about once. Approvals persist in `%APPDATA%\CyraHelper\known_models.json`; console mode can also pre-approve models with `--allow-model`.
+- **Consent before big downloads — with the real size.** If the hub asks for a model you do not have, the app first looks up the model's real size from Hugging Face hub metadata and states that figure in the consent prompt; if the lookup fails, the prompt says the size is unknown instead of quoting a vague figure. The app asks before downloading and remembers each answer, so every model is only asked about once. Approvals persist in `%APPDATA%\CyraHelper\known_models.json`; console mode can also pre-approve models with `--allow-model`.
+- **Optional local audit log (opt-in, off by default).** Turn it on (`CYRA_HELPER_AUDIT_LOG=1`, or `--audit-log` in console mode) and every job your PC renders is recorded locally — job ID, model, timestamp, and prompt — in `%APPDATA%\CyraHelper\audit_log.jsonl`, so you can see exactly what your machine was asked to render. The log never leaves your PC; with the setting off, nothing is written.
 - **Safe model loading.** A hub-supplied model ID must be a plain Hugging Face `owner/repo` identifier — local paths and `.` / `..` path segments are rejected. Models load with safetensors weights only (`use_safetensors=True`) and remote code execution disabled (`trust_remote_code=False`).
 - **Pause that stops new jobs immediately.** The Pause button (or Ctrl+C in console mode) stops new jobs at once. A render already in flight runs to completion first — renders are not preemptible, so expect the GPU to stay busy for a few minutes after you return.
 - **GUI and console modes.** Run the windowed tkinter app, or run headless with `--console` on a spare rig. A debug twin, `CyraHelper-debug.exe`, ships next to the main executable and prints everything to a terminal for troubleshooting.
@@ -122,7 +123,7 @@ Render jobs are handled by [`helper/jobs/render.py`](helper/jobs/render.py):
 
 - **Parameters:** `prompt` (required, must be a non-empty string), `negative_prompt`, `width`, `height`, `steps`, `seed` (integer or null), and `model`.
 - **Clamps, mirrored on both sides:** width and height are clamped to 64–2048 and then rounded down to a multiple of 8 (the diffusion latent space is ÷8); steps are clamped to 1–150. Defaults are 512×512 and 30 steps. Out-of-range and non-numeric values are clamped rather than crashing the render.
-- **Pipeline caching:** the pipeline for a model is loaded once and kept in memory. Loads are serialized with a lock so two threads can never load the same pipeline twice and leak VRAM.
+- **Pipeline caching:** the pipeline for a model is loaded once and kept in memory. Loads are serialized with a lock so two threads can never load the same pipeline twice and leak VRAM. A switch loads the new pipeline before releasing the old one. **Decision (closed 2026-10-21): keep load-new-before-releasing-old** — a failed new load must never leave the volunteer with no pipeline; the accepted cost is peak double VRAM during a switch.
 - **Output:** the finished image is encoded as PNG with fast compression (level 1) — PNG is lossless at every level, so only the encode time changes, not the pixels.
 
 ### Protocol
@@ -202,6 +203,7 @@ These options are defined by the entry point in [`helper/main.py`](helper/main.p
 | `--config <path>` | — | JSON file with `hub_base` and `name` for unattended first registration in console mode. |
 | `--idle-cpu <percent>` | `40` | CPU % below which the machine counts as idle. Must be between 0 and 100 — out-of-range values are rejected instead of silently disabling or forcing the idle gate. Lower means pickier. Example: `CyraHelper.exe --console --idle-cpu 25`. |
 | `--allow-model <owner/repo>` | — | Pre-approve a Hugging Face model for download with no prompt. Repeatable. The default model is always allowed. |
+| `--audit-log` | off | Console mode: keep a local log of rendered prompts (job ID, model, time, prompt) at `%APPDATA%\CyraHelper\audit_log.jsonl`. The log never leaves the PC. GUI launches can opt in with the `CYRA_HELPER_AUDIT_LOG=1` environment variable instead. |
 
 ### Troubleshooting
 
@@ -209,7 +211,7 @@ Run `CyraHelper-debug.exe` from a terminal and send in what it prints. Common pr
 
 ## Configuration
 
-Cyra Helper has no central settings file and no environment-variable configuration. Its state is deliberately small:
+Cyra Helper has no central settings file. Its one environment-variable setting is the opt-in audit log (below); the rest of its state is deliberately small:
 
 | What | Where | Notes |
 |---|---|---|
@@ -217,6 +219,7 @@ Cyra Helper has no central settings file and no environment-variable configurati
 | Approved models | `%APPDATA%\CyraHelper\known_models.json` | The set of model IDs you have approved, so each model is only asked about once. Written atomically, like the identity file. |
 | Unattended pairing | A JSON file you pass with `--config` | Only `hub_base` and `name`; used once for a console-mode first registration. |
 | Idle threshold / pre-approved models | `--idle-cpu` / `--allow-model` flags | Per-launch settings; nothing is persisted for them. |
+| Prompt audit log (opt-in) | `%APPDATA%\CyraHelper\audit_log.jsonl` | Off by default. Enable with `CYRA_HELPER_AUDIT_LOG=1` or `--audit-log` (console). One JSON line per rendered job: job ID, model, timestamp, prompt. Local only — never sent to the hub or anywhere else. |
 
 Deleting `%APPDATA%\CyraHelper` removes all of the app's local state.
 
@@ -271,7 +274,7 @@ python -m pytest
 python -m pytest --collect-only
 ```
 
-Verified against a fresh snapshot of this repository at version 0.1.0: **83 tests collected, and all 83 pass.** The suite covers the protocol contract and heartbeat shape, identity load/save validation (including corrupt tokens, hub URLs, and non-JSON hub responses), the model consent gate and its persistence, render clamps and model-ID rejection, malformed hub payloads, heartbeats during long renders, stopping mid-render, and worker restart after stop. [`tests/conftest.py`](tests/conftest.py) puts the repository root on `sys.path` and installs a minimal `psutil` stub when the real package is unavailable, so a bare `pytest` run works on a plain development machine.
+Verified against a fresh snapshot of this repository at version 0.1.0: **127 tests collected, and all 127 pass.** The suite covers the protocol contract and heartbeat shape, identity load/save validation (including corrupt tokens, hub URLs, and non-JSON hub responses), the model consent gate and its persistence, the consent prompt's real-size wording (and its "size is unknown" fallback), the opt-in audit log's off-by-default and enabled behaviour, render clamps and model-ID rejection, malformed hub payloads, heartbeats during long renders, stopping mid-render, and worker restart after stop. [`tests/conftest.py`](tests/conftest.py) puts the repository root on `sys.path` and installs a minimal `psutil` stub when the real package is unavailable, so a bare `pytest` run works on a plain development machine.
 
 ## Project history
 
