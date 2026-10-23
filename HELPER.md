@@ -44,7 +44,10 @@ Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-
 
 - **NVIDIA GPU:** install the CUDA build of torch for full speed:
   `pip install torch --index-url https://download.pytorch.org/whl/cu121`
-  (The prebuilt `CyraHelper.exe` already ships with CUDA torch.)
+  (That CUDA path is for running from source. The prebuilt
+  `CyraHelper.exe` ships with the CPU build of torch — the release
+  workflow installs `packaging/requirements-ci.txt`, which pins CPU
+  torch — so the downloaded bundle renders on CPU, not at GPU speed.)
 - **No NVIDIA GPU:** it still works on CPU — just much slower. The worker will only pick up jobs your machine can actually finish; CPU-only machines are welcome but expect long render times.
 - The first render is slow (model load). After that the model stays in memory and jobs go faster.
 - Render sizes are clamped by the helper and the hub alike: width and height 64–2048 (rounded down to a multiple of 8), steps 1–150.
