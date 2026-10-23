@@ -33,7 +33,7 @@ That is the whole job. The helper receives a render prompt and returns an image.
 Anyone with a Windows PC — especially a gaming GPU sitting idle while its owner is at work or asleep. If your card spends most of its day doing nothing, it can be doing this instead.
 
 - No approval gate, no account, and no waiting list. Download, pair once, and you are contributing.
-- An NVIDIA GPU renders at full speed with the CUDA build of PyTorch. A machine without one still works on CPU — noticeably more slowly, and the first render on any machine is slow while the model loads.
+- An NVIDIA GPU renders at full speed with the CUDA build of PyTorch when running from source. The prebuilt release bundle ships the CPU build of PyTorch, so it renders on CPU — noticeably more slowly — and the first render on any machine is slow while the model loads.
 - No approval does not mean no control: the hub keeps a blocklist keyed by helper ID and can block or revoke a misbehaving helper, and a blocked helper stops with a clear `blocked` status.
 
 ## Features
