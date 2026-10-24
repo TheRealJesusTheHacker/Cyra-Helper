@@ -209,7 +209,19 @@ class HelperWorker:
             self._stop_event.set()
             return None
         resp.raise_for_status()
-        return resp.json()
+        # S5: a 200 whose body isn't JSON (proxy page, captive portal, a
+        # broken hub) used to escape as a bare ValueError carrying only
+        # the JSON parser's message ("Expecting value: line 1 column 1")
+        # — the exact failure registration.register() was fixed for in
+        # BH2, never applied here. On the heartbeat path that message
+        # became the volunteer's status line, with nothing actionable in
+        # it. Fail with a clear message instead; callers' existing
+        # Exception handling (heartbeat retry, job-fetch guard, result
+        # retry) is unchanged.
+        try:
+            return resp.json()
+        except ValueError as e:
+            raise RuntimeError(f"hub response was not JSON: {e}") from e
 
     # ------------------------------------------------------------------- loop
     def _run(self):
