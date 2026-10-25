@@ -20,12 +20,8 @@ if not exist .venv (
 
 call .venv\Scripts\activate.bat
 
-echo Installing requirements...
-pip install -r requirements.txt
-if errorlevel 1 exit /b 1
-
-echo Installing PyInstaller...
-pip install pyinstaller
+echo Installing requirements (hash-verified lock: runtime deps + PyInstaller)...
+pip install --require-hashes -r packaging\requirements-ci.lock.txt
 if errorlevel 1 exit /b 1
 
 echo Building...

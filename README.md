@@ -233,7 +233,7 @@ Close the app, delete the folder you unzipped, and delete `%APPDATA%\CyraHelper`
 packaging\build_helper.bat
 ```
 
-You need Python 3.11 on Windows. The script creates `.venv` if needed, installs `requirements.txt`, installs PyInstaller, builds with [`packaging/cyra-helper.spec`](packaging/cyra-helper.spec), checks that `dist\CyraHelper\CyraHelper.exe` exists, and zips the bundle to `dist\CyraHelper-<version>-win64.zip`, taking the version from `helper/VERSION`.
+You need Python 3.11 on Windows. The script creates `.venv` if needed, installs the hash-verified lock [`packaging/requirements-ci.lock.txt`](packaging/requirements-ci.lock.txt) (`pip install --require-hashes` — the runtime dependencies plus PyInstaller, every package checked against the sha256 the index publishes for it), builds with [`packaging/cyra-helper.spec`](packaging/cyra-helper.spec), checks that `dist\CyraHelper\CyraHelper.exe` exists, and zips the bundle to `dist\CyraHelper-<version>-win64.zip`, taking the version from `helper/VERSION`.
 
 Packaging notes, from the spec file:
 
@@ -241,7 +241,7 @@ Packaging notes, from the spec file:
 - **Two executables ship together:** `CyraHelper.exe` (windowed) and `CyraHelper-debug.exe` (console twin for crash logging and troubleshooting).
 - **Unsigned.** Local and release builds are unsigned, so SmartScreen warns on first run (see [Install](#install)).
 
-Releases are built by [`.github/workflows/release.yml`](.github/workflows/release.yml) on `windows-latest`: pushing a `v*` tag stamps the version from `helper/VERSION`, installs [`packaging/requirements-ci.txt`](packaging/requirements-ci.txt) (CPU torch — the runner only needs a buildable import, not a GPU), builds with PyInstaller, and publishes the zip plus `SHA256SUMS-win64` straight to the GitHub Release. A manual `workflow_dispatch` run builds only, with no upload. Dependabot is configured in [`.github/dependabot.yml`](.github/dependabot.yml) for weekly pip and GitHub Actions update proposals.
+Releases are built by [`.github/workflows/release.yml`](.github/workflows/release.yml) on `windows-latest`: pushing a `v*` tag stamps the version from `helper/VERSION`, installs the hash-verified lock [`packaging/requirements-ci.lock.txt`](packaging/requirements-ci.lock.txt) (the CI pin list is [`packaging/requirements-ci.txt`](packaging/requirements-ci.txt)), builds with PyInstaller, and publishes the zip plus `SHA256SUMS-win64` straight to the GitHub Release. A manual `workflow_dispatch` run builds only, with no upload. Dependabot is configured in [`.github/dependabot.yml`](.github/dependabot.yml) for weekly pip and GitHub Actions update proposals.
 
 ## Development
 
@@ -263,7 +263,7 @@ Releases are built by [`.github/workflows/release.yml`](.github/workflows/releas
 
 ### Dependencies
 
-Runtime dependencies are pinned in [`requirements.txt`](requirements.txt) to the exact versions the v0.1.0 release build was verified against (with the one security exception noted in that file: Pillow 13.0.0 in v0.1.2): `requests`, `psutil`, `Pillow`, `diffusers`, `accelerate`, `safetensors`, and `huggingface_hub`, plus `torch`. Torch is the one install choice: use the CUDA build for an NVIDIA GPU or the CPU build otherwise — the commands for both are commented in `requirements.txt`. The release workflow's CI requirements ([`packaging/requirements-ci.txt`](packaging/requirements-ci.txt)) use CPU torch and add PyInstaller.
+Runtime dependencies are pinned in [`requirements.txt`](requirements.txt) to the exact versions the v0.1.0 release build was verified against (with the one security exception noted in that file: Pillow 13.0.0 in v0.1.2): `requests`, `psutil`, `Pillow`, `diffusers`, `accelerate`, `safetensors`, and `huggingface_hub`, plus `torch`. Installs use the hash-verified lock [`requirements.lock.txt`](requirements.lock.txt) (`pip install --require-hashes -r requirements.lock.txt`), which pins that set plus every transitive dependency with the sha256 the index publishes for each. Torch is the one install choice: the lock carries the PyPI build; a volunteer running from source with an NVIDIA GPU can swap in the CUDA build afterwards — the commands are commented in `requirements.txt`, and that single-package swap from PyTorch's own index is the one documented exception to hash-locking. The release workflow's CI requirements ([`packaging/requirements-ci.txt`](packaging/requirements-ci.txt)) add PyInstaller, and the workflow installs its lock, [`packaging/requirements-ci.lock.txt`](packaging/requirements-ci.lock.txt), the same verified way.
 
 ### Testing
 

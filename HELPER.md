@@ -43,11 +43,13 @@ Your pairing is stored at `%APPDATA%\CyraHelper\helper.json`. It holds your help
 Rendering happens on your GPU with Stable Diffusion (`runwayml/stable-diffusion-v1-5`, ~4GB one-time download — the app asks before downloading anything that big).
 
 - **NVIDIA GPU:** install the CUDA build of torch for full speed:
-  `pip install torch --index-url https://download.pytorch.org/whl/cu121`
-  (That CUDA path is for running from source. The prebuilt
-  `CyraHelper.exe` ships with the CPU build of torch — the release
-  workflow installs `packaging/requirements-ci.txt`, which pins CPU
-  torch — so the downloaded bundle renders on CPU, not at GPU speed.)
+  `pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu126`
+  (That CUDA path is for running from source, after the standard
+  hash-verified install — `pip install --require-hashes -r
+  requirements.lock.txt`. This one swap is the exception to
+  hash-locking: a single package from PyTorch's own index, pinned to
+  the same torch version the lock carries, chosen by the volunteer
+  for their GPU.)
 - **No NVIDIA GPU:** it still works on CPU — just much slower. The worker will only pick up jobs your machine can actually finish; CPU-only machines are welcome but expect long render times.
 - The first render is slow (model load). After that the model stays in memory and jobs go faster.
 - Render sizes are clamped by the helper and the hub alike: width and height 64–2048 (rounded down to a multiple of 8), steps 1–150.

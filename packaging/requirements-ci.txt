@@ -1,5 +1,15 @@
 # CI deps for the release workflow (windows-latest runner).
 # torch CPU wheel: the runner only needs a buildable import, not a GPU.
+# INSTALL VIA THE HASH-LOCKED SIBLING: this file is the human-edited pin
+# list; the verified install is
+#   pip install --require-hashes -r packaging/requirements-ci.lock.txt
+# A bump is not landed until the lock is regenerated with it.
+# NOTE (verified 2026-10-25): the --index-url written on the torch line
+# below is not honored by pip — options trailing a requirement on the
+# same line are ignored, and pip resolves torch from PyPI (plain
+# 2.14.1). The lock therefore pins the PyPI build, which is what the
+# workflow actually installs today; the line is kept as the record of
+# the CPU-wheel intent.
 requests==2.34.2
 psutil==7.2.2
 Pillow==13.0.0

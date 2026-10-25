@@ -3,6 +3,12 @@
 # against (CI run 38158681819, 2026-10-11); dependabot proposes bumps.
 # Exception: Pillow was bumped 12.3.0 -> 13.0.0 on 2026-10-23 (v0.1.2)
 # to close the advisories pip-audit reported against 12.3.0.
+# INSTALL VIA THE HASH-LOCKED SIBLING: this file is the human-edited pin
+# list; the verified install is
+#   pip install --require-hashes -r requirements.lock.txt
+# which pins this exact set plus every transitive dependency, each with
+# the sha256 the index publishes for it. A bump is not landed until the
+# lock is regenerated with it.
 requests==2.34.2
 psutil==7.2.2
 Pillow==13.0.0
@@ -10,7 +16,10 @@ diffusers==0.41.0
 accelerate==1.15.0
 safetensors==0.8.0
 huggingface_hub==1.33.0
-# torch: install the CUDA build matching the volunteer's GPU, or the CPU build.
-#   CUDA (NVIDIA):  pip install torch --index-url https://download.pytorch.org/whl/cu121
-#   CPU only:       pip install torch --index-url https://download.pytorch.org/whl/cpu
+# torch: the lock carries the PyPI build of torch==2.14.1. A volunteer
+# who wants the CUDA build for an NVIDIA GPU swaps it afterwards — that
+# one swap is the documented exception to hash-locking (single package,
+# PyTorch's own index, the volunteer's GPU choice; see HELPER.md):
+#   CUDA (NVIDIA):  pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu126
+#   CPU only:       pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
 torch==2.14.1
