@@ -3,7 +3,7 @@
 # Source input:  requirements.txt (direct pins: requests==2.34.2,
 #                psutil==7.2.2, Pillow==13.0.0, diffusers==0.41.0,
 #                accelerate==1.15.0, safetensors==0.8.0,
-#                huggingface_hub==1.33.0, torch==2.14.1)
+#                huggingface_hub==2.2.0, torch==2.14.1)
 # Generated:     2026-10-25 (fleet --require-hashes rollout). Resolution
 #                by pip's own resolver (pip install --dry-run --report,
 #                CPython 3.12, linux x86_64), completed for Windows with
@@ -305,7 +305,7 @@ httpx==0.28.1 \
     --hash=sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc \
     --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
     # via huggingface_hub
-huggingface_hub==1.33.0 \
+huggingface_hub==2.2.0 \
     --hash=sha256:04e434b06e100eddbce9a6e817d72693a7884b10a79bd67ab48080d5c07eb899 \
     --hash=sha256:367be21a201db9523eddf8aeac7048f2602c1b308691c97640d5e72ed188007e
     # via accelerate, diffusers, safetensors

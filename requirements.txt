@@ -15,7 +15,7 @@ Pillow==13.0.0
 diffusers==0.41.0
 accelerate==1.15.0
 safetensors==0.8.0
-huggingface_hub==1.33.0
+huggingface_hub==2.2.0
 # torch: the lock carries the PyPI build of torch==2.14.1. A volunteer
 # who wants the CUDA build for an NVIDIA GPU swaps it afterwards — that
 # one swap is the documented exception to hash-locking (single package,
