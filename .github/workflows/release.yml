@@ -15,10 +15,13 @@
 name: release
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version to create (e.g. v0.1.4). Leave empty for a dry run: builds only, nothing uploaded."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -37,6 +40,16 @@ jobs:
           $ver = (Get-Content helper/VERSION -Raw).Trim()
           "HELPER_VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      - name: Validate version input
+        if: inputs.version != ''
+        shell: pwsh
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+        run: |
+          if ($env:VERSION_INPUT -notmatch '^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+            Write-Host "::error::version input '$env:VERSION_INPUT' is not a valid release version (expected vX.Y.Z)"
+            exit 1
+          }
       - name: Set up Python 3.11
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -56,10 +69,22 @@ jobs:
           (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  $zip" |
             Out-File -FilePath "SHA256SUMS-win64" -Encoding ascii
 
+      - name: Create the release if it does not exist yet
+        if: inputs.version != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.version }}
+        run: |
+          gh release view "$env:RELEASE_TAG" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create "$env:RELEASE_TAG" --target "$env:GITHUB_SHA" --title "$env:RELEASE_TAG" --generate-notes
+          }
       - name: Upload to release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: inputs.version != ''
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
+          tag_name: ${{ inputs.version }}
           files: |
             CyraHelper-${{ env.HELPER_VERSION }}-win64.zip
             SHA256SUMS-win64
